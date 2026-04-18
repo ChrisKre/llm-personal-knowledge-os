@@ -1,0 +1,23 @@
+# Persönliche Rohdaten — nie in Git
+raw/events/
+raw/assets/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+venv/
+.venv/
+*.egg-info/
+
+# Obsidian intern
+.obsidian/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
