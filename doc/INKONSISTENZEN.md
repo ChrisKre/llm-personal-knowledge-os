@@ -1,27 +1,28 @@
 # INKONSISTENZEN.md — Dokumentations-Health-Check
 > Erstellt: Session 010 (2026-04-19) | Autor: Product Owner
+> Abgearbeitet: Session 011 (2026-04-20) — alle 14 Einträge erledigt.
 > Ergebnis eines Scans aller Dateien in `doc/` nach Nummerierungsfehlern, veralteten Aussagen und Widersprüchen zu nachträglich getroffenen Entscheidungen.
 
 ---
 
 ## Übersicht
 
-| ID | Datei | Schwere | Empfehlung |
-|---|---|---|---|
-| INK-001 | ARCHITECTURE.md | hoch | korrigieren |
-| INK-002 | ARCHITECTURE.md | mittel | korrigieren |
-| INK-003 | COMP_DIARY.md | hoch | korrigieren |
-| INK-004 | COMP_DIARY.md | hoch | korrigieren |
-| INK-005 | COMP_DIARY.md | hoch | korrigieren |
-| INK-006 | COMP_DIARY.md | mittel | korrigieren |
-| INK-007 | COMP_SERVICES.md | hoch | korrigieren |
-| INK-008 | COMP_SERVICES.md | niedrig | korrigieren |
-| INK-009 | SCHEMA.md | mittel | ergänzen |
-| INK-010 | SCHEMA.md | niedrig | schließen |
-| INK-011 | doc/prompt.md | hoch | archivieren |
-| INK-012 | doc/start.md | hoch | archivieren |
-| INK-013 | doc/NEXT_SESSION_PROMPT.md | hoch | archivieren |
-| INK-014 | sessions/* | mittel | korrigieren |
+| ID | Datei | Schwere | Empfehlung | Status |
+|---|---|---|---|---|
+| INK-001 | ARCHITECTURE.md | hoch | korrigieren | ✓ erledigt in S011 |
+| INK-002 | ARCHITECTURE.md | mittel | korrigieren | ✓ erledigt in S011 |
+| INK-003 | COMP_DIARY.md | hoch | korrigieren | ✓ erledigt in S011 |
+| INK-004 | COMP_DIARY.md | hoch | korrigieren | ✓ erledigt in S011 |
+| INK-005 | COMP_DIARY.md | hoch | korrigieren | ✓ erledigt in S011 |
+| INK-006 | COMP_DIARY.md | mittel | korrigieren | ✓ erledigt in S011 |
+| INK-007 | COMP_SERVICES.md | hoch | korrigieren | ✓ erledigt in S011 |
+| INK-008 | COMP_SERVICES.md | niedrig | korrigieren | ✓ erledigt in S011 |
+| INK-009 | SCHEMA.md | mittel | ergänzen | ✓ erledigt in S011 (§3.7 ServiceDefinition, §3.8 System-Dateien) |
+| INK-010 | SCHEMA.md | niedrig | schließen | ✓ erledigt in S011 |
+| INK-011 | doc/prompt.md | hoch | archivieren | ✓ verschoben → hinweise/archiv/initial_prompt.md |
+| INK-012 | doc/start.md | hoch | archivieren | ✓ verschoben → hinweise/archiv/start_notes.md |
+| INK-013 | doc/NEXT_SESSION_PROMPT.md | hoch | archivieren | ✓ verschoben → hinweise/archiv/next_session_prompt_002.md |
+| INK-014 | sessions/* | mittel | korrigieren | ✓ erledigt in S011 (master bleibt — ENT-039 final) |
 
 ---
 

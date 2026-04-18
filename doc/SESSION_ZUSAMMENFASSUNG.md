@@ -91,7 +91,7 @@
 
 **Was sich als Schwachstelle zeigt:**
 - Doku-Drift: nach Umbau werden abhängige Stellen (Nummern, Typen, Referenzen) nicht alle aktualisiert.
-- Branch-Naming inkonsistent (master vs. main).
+- Branch-Naming inkonsistent (master vs. main) — in S011 final auf `master` festgelegt (ENT-039).
 - "Überbleibsel"-Dateien (prompt.md, start.md, NEXT_SESSION_PROMPT.md) blieben über 9 Sessions unaufgeräumt in `doc/`.
 
 **Empfehlung für kommende Sessions:**

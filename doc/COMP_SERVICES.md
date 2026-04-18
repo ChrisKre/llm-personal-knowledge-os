@@ -1,5 +1,5 @@
 # COMP_SERVICES.md — Services Meta-Routine
-> Version: 0.1 | Datum: 2026-04-18 | Status: ENTWURF (GE-001)
+> Version: 0.1 | Datum: 2026-04-18 | Status: ENTWURF — MVP-2/Phase 3 (QK-3, Session 008)
 > Branch: `experiment/ge-001-services-meta-routine`
 > Keine Implementierung — Entscheidungsgrundlage für spätere Sessions
 
@@ -122,7 +122,7 @@ style_context_key: "krypto_erklaerung"   # Schlüssel im StyleProfile.context_pr
 llm_calls_per_execution:
   whisper: 1        # lokal, kostenlos
   haiku: 0
-  sonnet: 1         # Ton-Analyse
+  sonnet: 1         # Transkript-Qualitätsanalyse (V1: text-only — ENT-024)
   estimated_cost_usd: 0.01
 
 # Konversations-Flow
@@ -133,7 +133,7 @@ conversation_config:
   stimulus_source: "raw/assets/crypto_charts/"
   await_prompt: "Erkläre das Muster — 30–60 Sekunden."
   analysis_type: style_fingerprint   # style_fingerprint | story_lab | vocab | language_quality
-  feedback_type: timing_tonal
+  feedback_type: timing_transcript_quality
 ---
 
 # Service: Krypto-Erklärung
@@ -170,7 +170,7 @@ conversation_config:
   "audio_path": "raw/assets/2026-04-18T14-32-00_voice.ogg",
   "transcript": "[Whisper-Transkript]",
   "timing": {},
-  "tonal": {},
+  "transcript_quality": {},
   "style_context_key": "krypto_erklaerung",
   "feedback_sent": true,
   "processed": true
@@ -317,7 +317,7 @@ proposed → [Nutzer bestätigt] → active → [Nutzer pausiert] → paused →
 Services schreiben keinen neuen StyleFingerprint im alten Sinn — sie erzeugen **context-tagged Aggregationen** im StyleProfile.
 
 **Schritt 1 — Service-Antwort analysieren:**
-Identisch zur Story-Lab Voice-Analyse (COMP_DIARY §6.5): Whisper + Claude Sonnet Audio.
+Identisch zur Story-Lab Voice-Analyse (COMP_DIARY §6.5): Whisper-Transkript + Claude Sonnet Text-Analyse (V1: kein Audio-Input — ENT-024).
 
 **Schritt 2 — In practice_log schreiben:**
 ```yaml
@@ -328,7 +328,7 @@ Identisch zur Story-Lab Voice-Analyse (COMP_DIARY §6.5): Whisper + Claude Sonne
   style_context_key: krypto_erklaerung
   timing_wps: 2.8
   pause_before_punchline: 0.9
-  tonal_score: {enthusiasmus: 4, natuerlichkeit: 3, ueberzeugung: 4}
+  transcript_quality: {struktur: 4, klarheit: 3, ueberzeugung: 4}   # V1: text-only (ENT-024)
   style_profile_ref: "[[sp_chappelle]]"
 ```
 

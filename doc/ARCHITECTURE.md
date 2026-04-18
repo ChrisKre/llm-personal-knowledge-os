@@ -389,7 +389,7 @@ Für Qualitätstests (story_score, VocabEntry-Inhalt) ist Claude API nötig.
 
 ## 6. LangGraph Implementierung
 
-### 5.1 Graph-Struktur (Ingestion Flow)
+### 6.1 Graph-Struktur (Ingestion Flow)
 
 ```python
 from langgraph.graph import StateGraph, END
@@ -427,7 +427,7 @@ workflow.add_edge("write_to_graph",    "update_index")
 workflow.add_edge("update_index",      END)
 ```
 
-### 5.2 Datei-Schreib-Vertrag
+### 6.2 Datei-Schreib-Vertrag
 
 Kein Agent schreibt direkt Dateien. Alle schreiben in den State:
 
@@ -440,7 +440,7 @@ class WikiWrite(TypedDict):
 
 Der `graph_writer`-Node führt alle Writes nach Supervisor-Freigabe aus. Das gibt dem Supervisor die letzte Kontrolle und macht Rollbacks möglich.
 
-### 5.3 Graph Reader — Index-Abstraktion
+### 6.3 Graph Reader — Index-Abstraktion
 
 Der `graph_reader` ist die einzige Stelle die weiß wie der Index implementiert ist. Alle Agenten und der Supervisor rufen nur diese Schnittstelle auf:
 
@@ -471,7 +471,7 @@ def fetch_context(state: SupervisorState) -> SupervisorState:
 
 ---
 
-## 6. Nutzer-Interaktion: Telegram UI-Ebenen
+## 7. Nutzer-Interaktion: Telegram UI-Ebenen
 
 Telegram ist der primäre Interaktionskanal. Es bietet drei native UI-Ebenen — von einfach bis reich:
 
@@ -535,7 +535,7 @@ Wenn native Telegram-UI nicht mehr reicht: Mini Apps sind vollständige Web-Apps
 
 ---
 
-## 7. Graph-Versionierung: Draft → Prod Workflow
+## 8. Graph-Versionierung: Draft → Prod Workflow
 
 ### Das Konzept
 
@@ -543,7 +543,7 @@ Der Knowledge Graph läuft auf **zwei Git-Branches**:
 
 ```
 draft  ← LLM schreibt hier (alle neuen/aktualisierten Wiki-Seiten)
-main   ← "prod" Graph — was Obsidian liest, was zählt
+master ← "prod" Graph — was Obsidian liest, was zählt
 ```
 
 Kein GitHub nötig. Lokales Git-Repo, Python-Script macht den Merge.
@@ -567,7 +567,7 @@ Supervisor → Telegram-Nachricht an Nutzer:
 │  [Freigeben ✓]  [Details]  [Ablehnen ✗] │
 └─────────────────────────────────────────┘
 
-[Freigeben] → git merge draft → main (Python subprocess)
+[Freigeben] → git merge draft → master (Python subprocess)
 [Details]   → Bot sendet Diff-Summary der Änderungen
 [Ablehnen]  → git checkout draft -- . (reset), Nutzer-Feedback optional
 ```
@@ -579,7 +579,7 @@ Supervisor → Telegram-Nachricht an Nutzer:
 import subprocess
 
 def approve_draft() -> bool:
-    """Mergt draft → main. Wird via Telegram-Callback aufgerufen."""
+    """Mergt draft → master. Wird via Telegram-Callback aufgerufen."""
     result = subprocess.run(
         ["git", "merge", "draft", "--no-ff", "-m", "approved by user"],
         cwd=WIKI_ROOT, capture_output=True
@@ -587,8 +587,8 @@ def approve_draft() -> bool:
     return result.returncode == 0
 
 def reject_draft() -> bool:
-    """Setzt draft auf Stand von main zurück."""
-    subprocess.run(["git", "checkout", "main"], cwd=WIKI_ROOT)
+    """Setzt draft auf Stand von master zurück."""
+    subprocess.run(["git", "checkout", "master"], cwd=WIKI_ROOT)
     subprocess.run(["git", "branch", "-D", "draft"], cwd=WIKI_ROOT)
     subprocess.run(["git", "checkout", "-b", "draft"], cwd=WIKI_ROOT)
     return True
@@ -610,7 +610,7 @@ Nicht jede Änderung braucht manuelle Freigabe — das wäre zu viel Aufwand:
 
 ---
 
-## 8. Trigger & Scheduling
+## 9. Trigger & Scheduling
 
 | Trigger                    | Wann                       | Auslöser            | Flow              |
 |----------------------------|----------------------------|---------------------|-------------------|
@@ -623,11 +623,11 @@ Nicht jede Änderung braucht manuelle Freigabe — das wäre zu viel Aufwand:
 
 ---
 
-## 9. Offene Architektur-Fragen (Backlog)
+## 10. Offene Architektur-Fragen (Backlog)
 
 - [x] Supervisor-Granularität: user_profile (~80-120 Zeilen) + graph_context (dynamisch) — zwei Ebenen
 - [x] Index-Schwellwert: graph_reader Abstraktion mit automatischem Phase 1→2 Switch bei 150 Seiten
 - [x] Nutzer-UI: Telegram Ebene 1 (Buttons/Polls) + Ebene 2 (ConversationHandler); Mini Apps als Upgrade-Pfad
-- [x] Graph-Versionierung: draft → main Branch-Workflow, manuelle Freigabe via Telegram für kritische Änderungen
+- [x] Graph-Versionierung: draft → master Branch-Workflow, manuelle Freigabe via Telegram für kritische Änderungen
 - [x] Ollama lokal: llama3.2 als Default für `private`-Tier und als Test-Fallback. Qualitätsvergleich llama3.2 vs. mistral steht noch aus — für MVP-0/1 reicht llama3.2.
 - [ ] Keyword-Extraktion für graph_context: wie viele Begriffe, welche Gewichtung (Entitäten > Verben)?

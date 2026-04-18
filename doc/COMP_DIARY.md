@@ -85,7 +85,7 @@ practice_log:
     score_after: 8
     timing_wps: 2.4          # Wörter/Sekunde (Whisper)
     pause_before_punchline: 1.2s
-    tonal_score: {enthusiasmus: 4, natuerlichkeit: 3, ueberzeugung: 4}
+    transcript_quality: {struktur: 4, klarheit: 3, ueberzeugung: 4}   # V1: text-only (ENT-024)
     feedback_summary: "Pause vor Pointe gut. Einstieg noch zu abstrakt."
 ```
 
@@ -227,7 +227,7 @@ Jede Antwort durchläuft den normalen Ingest-Flow, aber mit einem zusätzlichen 
 
 Der `user_hint: "bootstrap"` überspringt die Klassifikations-Unsicherheit — der Supervisor weiß sofort: Diary Agent, PersonalFact erstellen, `story_score` berechnen.
 
-**Besonderheit:** Im Bootstrap-Modus werden PersonalFacts direkt auf `main`-Branch geschrieben (kein Draft-Review). Grund: Bootstrap ist eine explizit vom Nutzer initiierte Aktion — die Freigabe ist implizit.
+**Besonderheit:** Im Bootstrap-Modus werden PersonalFacts direkt auf `master`-Branch geschrieben (kein Draft-Review). Grund: Bootstrap ist eine explizit vom Nutzer initiierte Aktion — die Freigabe ist implizit.
 
 ---
 
@@ -509,12 +509,17 @@ def weekly_correlation_scan(all_facts: list[WikiPage]) -> list[CorrelationResult
 
 ## 6. Story-Lab
 
-### 6.1 Konzept: Voice-First Coaching
+### 6.1 Konzept: Story-Lab Coaching (V1: text-basiert)
 
-Story-Lab ist kein starrer Coaching-Flow — es ist ein **Experiment-Raum**. Der Nutzer probiert denselben Fact in verschiedenen Stilen aus, nimmt sich auf (Sprachnachricht), und bekommt kombiniertes Feedback aus Timing-Analyse und Ton-Analyse.
+> **V1-Einschränkung:** Claude API unterstützt kein Audio-Input (OGG/MP3). Tonalitätswerte
+> (Enthusiasmus, Natürlichkeit) sind in V1 nicht verfügbar. Stufe 2 analysiert stattdessen
+> den Whisper-Transkripttext auf Erzählstruktur und Verbesserungspotential (ENT-024).
+> Audio-Tonalitäts-Analyse folgt sobald eine Audio-API verfügbar ist.
+
+Story-Lab ist kein starrer Coaching-Flow — es ist ein **Experiment-Raum**. Der Nutzer probiert denselben Fact in verschiedenen Stilen aus, nimmt sich auf (Sprachnachricht), und bekommt kombiniertes Feedback aus Timing-Analyse und Transkript-Qualitätsanalyse.
 
 ```
-Fact + Stil-Karte → Nutzer nimmt auf → Whisper + Claude Audio → Feedback → (nächster Versuch?)
+Fact + Stil-Karte → Nutzer nimmt auf → Whisper + Claude Sonnet (Text-Analyse) → Feedback → (nächster Versuch?)
 ```
 
 Ziel: nicht der "perfekte" Vortrag, sondern das Finden des eigenen Stils der natürlich und stark ist.
@@ -610,7 +615,7 @@ Bot: "Nimm dich auf. Erzähl die Geschichte im Selbstironie-Stil — 30-60 Sekun
      [Nutzer sendet Sprachnachricht]
 
 Bot: "⏳ Analysiere..."
-     [Whisper + Claude Audio läuft intern]
+     [Whisper + Claude Sonnet (Text-Analyse) läuft intern]
 
 Bot: "📊 Deine Version:
      
@@ -723,12 +728,15 @@ def analyze_transcript_quality(transcript_text: str, fact: WikiPage) -> Transcri
 ```python
 def generate_story_lab_feedback(
     timing: TimingReport,
-    tonal: TonalReport,
+    transcript_quality: TranscriptQualityReport,
     style: str,
     fact: WikiPage,
     style_profile: StyleProfile | None = None,  # aktives StyleProfile, falls gesetzt
 ) -> str:
-    """Kombiniert Timing + Ton + StyleProfile-Vergleich zu lesbarem Feedback."""
+    """Kombiniert Timing + Transkript-Qualität + StyleProfile-Vergleich zu lesbarem Feedback.
+
+    V1: text-only — Audio-Tonalität nicht in Claude API verfügbar (ENT-024).
+    """
     
     feedback_lines = []
     ref_name = f"[{style_profile.name}]" if style_profile else "[Standard]"
@@ -758,8 +766,8 @@ def generate_story_lab_feedback(
     if style_profile and style_profile.confidence >= 0.5 and style_profile.key_patterns:
         feedback_lines.append(f"Stil-Tipp {ref_name}: '{style_profile.key_patterns[0]}'")
     
-    # Tonal
-    feedback_lines.append(f"Ton: {tonal.empfehlung}")
+    # Transkript-Qualität (V1: text-only — Audio-Tonalität blockiert per ENT-024)
+    feedback_lines.append(f"Transkript: {transcript_quality.empfehlung}")
     
     return "\n".join(feedback_lines)
 ```
@@ -931,24 +939,24 @@ def process_impuls_response(
     transcript = whisper_model.transcribe(voice_ogg)
     timing     = analyze_timing(transcript.segments)
     
-    # Transkript-Qualitätsanalyse (V1: text-only; Audio-Tonalität folgt in V2)
-    tonal = analyze_transcript_quality(transcript.text, impuls)
+    # Transkript-Qualitätsanalyse (V1: text-only; Audio-Tonalität folgt in V2 — ENT-024)
+    transcript_quality = analyze_transcript_quality(transcript.text, impuls)
     
     # Feedback mit StyleProfile-Vergleich — kein abgeschwächtes "Light-Feedback"
     feedback = generate_story_lab_feedback(
-        timing, tonal, impuls.type, active_style_profile
+        timing, transcript_quality, impuls.type, active_style_profile
     )
     send_telegram_message(feedback)
     
     # Typ-spezifisches Graph-Routing (Schritt 3)
-    _route_to_graph(transcript, timing, tonal, impuls)
+    _route_to_graph(transcript, timing, transcript_quality, impuls)
 ```
 
 #### Schritt 3 — Typ-spezifisches Graph-Routing
 
 | Impuls-Typ | Was gespeichert wird | Wo |
 |---|---|---|
-| `fact_retell` | practice_log-Eintrag (timing + tonal + context) | referenzierter PersonalFact |
+| `fact_retell` | practice_log-Eintrag (timing + transcript_quality + context) | referenzierter PersonalFact |
 | `situation` / `debate` | Neuer PersonalFact falls Diary-Agent story_score ≥ 5 | wiki/personal/facts/ |
 | `fact_bridge` | Korrelations-Update, ggf. Concept-Seiten-Vorschlag | Korrelations-Engine |
 | `codemix` / `emotion_vocab` | VocabEntry-Nutzungsstatistik, Anki-Streak-Update | VocabEntries |
@@ -956,12 +964,12 @@ def process_impuls_response(
 | `image_react` | Kein Graph-Write — nur Feedback | — |
 
 ```python
-def _route_to_graph(transcript, timing, tonal, impuls: Impuls) -> None:
+def _route_to_graph(transcript, timing, transcript_quality, impuls: Impuls) -> None:
     match impuls.type:
         case "fact_retell":
             append_practice_log(
                 fact_path=impuls.graph_refs[0],
-                timing=timing, tonal=tonal,
+                timing=timing, transcript_quality=transcript_quality,
                 context=f"impuls:{impuls.type}",
             )
         
@@ -1212,7 +1220,7 @@ Das erlaubt später: *"Welche Facts habe ich im Chappelle-Stil geübt, und wie h
 
 ## 9. Diary-Agent-Implementierung
 
-### 8.1 State-Erweiterung
+### 9.1 State-Erweiterung
 
 Der `SupervisorState` aus ARCHITECTURE.md §3.2 wird um Diary-spezifische Felder erweitert:
 
@@ -1235,7 +1243,7 @@ class DiaryAgentState(TypedDict):
     telegram_messages: list[str]       # Nachrichten an Nutzer
 ```
 
-### 8.2 LangGraph-Nodes (Diary Flow)
+### 9.2 LangGraph-Nodes (Diary Flow)
 
 ```python
 # agents/diary_agent.py
@@ -1264,7 +1272,7 @@ diary_workflow.add_edge("elaborate", "write_fact")
 diary_workflow.add_edge("write_fact", END)
 ```
 
-### 8.3 Node-Übersicht
+### 9.3 Node-Übersicht
 
 | Node                | Modell    | Input                          | Output                              |
 |---------------------|-----------|--------------------------------|-------------------------------------|

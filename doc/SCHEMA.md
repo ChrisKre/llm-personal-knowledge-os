@@ -165,7 +165,20 @@ Lebt in `wiki/language/bridges/`. Wird vom Language-Agent automatisch erzeugt we
 
 **Verknüpfung:** StyleProfiles verlinken nicht auf andere Wiki-Entitäten, aber PersonalFact-`practice_log`-Einträge referenzieren das jeweils aktive StyleProfile via `style_profile_ref`.
 
-### 3.7 System-Dateien (`user_profile.md`, `index.md`, `log.md`)
+### 3.7 `ServiceDefinition`
+> Eine domänenspezifische Übungsroutine, die aus dem Graph-Inhalt generiert wird und das StyleProfile in Dimensionen anreichert, die Diary und Language allein nicht abdecken (z.B. Krypto-Erklärung, Spanisch-Improv). Lebt in `wiki/services/sd_[slug].md`. Detaillierte Spezifikation, Workflow und ServiceInstance-Verarbeitung siehe `COMP_SERVICES.md` (Status: Phase 3, nach MVP-1).
+
+**Pflicht-Frontmatter (Mindest-Felder):**
+- `type: ServiceDefinition`
+- `slug`: kebab-case Bezeichner (eindeutig)
+- `domain`: thematische Einordnung (`finance`, `language`, `presentation`, ...)
+- `style_context_key`: Schlüssel im aktiven `StyleProfile.context_profiles` für die Aggregation
+- `analysis_type`: `style_fingerprint` | `story_lab` | `vocab` | `language_quality`
+- `created`, `updated`, `status`, `tags`, `sources`, `related` (siehe §5)
+
+**Verknüpfung:** `practice_log`-Einträge aus Service-Ausführungen referenzieren via `service_slug` und `style_context_key`. Vollständiges Schema (inkl. `cost_estimate`, `conversation_config`, `ServiceInstance`) siehe COMP_SERVICES.md §2.
+
+### 3.8 System-Dateien (`user_profile.md`, `index.md`, `log.md`)
 
 Diese drei Dateien sind **keine Wiki-Entitäten** — sie haben keinen `type:`-Eintrag im Frontmatter und leben direkt im Repo-Root neben `SCHEMA.md`. Sie werden ausschließlich von Agenten geschrieben.
 
@@ -341,5 +354,5 @@ Ein **Lint-Pass** (täglich, durch Supervisor getriggert) prüft:
 - [ ] Brauchen wir eine SQLite-DB für strukturierte Queries auf PersonalFacts?
 - [ ] Wie Konfliktauflösung bei Widersprüchen im Graph gestalten (LLM-Flag vs. Auto-Merge)?
 - [x] Datenschutz: Sensitivity-Tier-Modell implementiert (public/sensitive/private → Haiku/Sonnet/Ollama)
-- [ ] Ollama-Setup definieren: welches lokale Modell für `private`-Tier? (llama3.2 vs. mistral)
+- [x] Ollama-Setup: llama3.2 als Default, mistral als Fallback (QK-5, Session 008) — siehe ENTSCHEIDUNGEN.md ENT-028.
 - [ ] `user_language_profile.md` Schema definieren — wie oft aktualisiert, welche Schwellwerte?

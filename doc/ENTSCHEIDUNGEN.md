@@ -70,10 +70,10 @@
 - **Auswirkung:** `providers/` oder äquivalente Abstraktion wählt Modell per Tier. Siehe ARCHITECTURE.md §5.
 - **Status:** final
 
-### [ENT-007] Draft → Main Git-Workflow für LLM-Writes
+### [ENT-007] Draft → Master Git-Workflow für LLM-Writes
 - **Entschieden:** 2026-04-17 (Session 003)
-- **Entscheidung:** Agent-Writes landen zuerst im `draft`-Branch; Merge in `main`/`master` nur nach Lint + (optionaler) User-Freigabe.
-- **Begründung:** LLM-Halluzinationen dürfen den produktiven Graphen nicht direkt verunreinigen. Obsidian liest `main`.
+- **Entscheidung:** Agent-Writes landen zuerst im `draft`-Branch; Merge in `master` nur nach Lint + (optionaler) User-Freigabe.
+- **Begründung:** LLM-Halluzinationen dürfen den produktiven Graphen nicht direkt verunreinigen. Obsidian liest `master`.
 - **Auswirkung:** `graph_writer.py` hat Draft/Prod-Modus. Ein Konflikt-Trigger erzeugt Freigabe-Prompt im Telegram-Bot.
 - **Status:** final
 
@@ -205,7 +205,7 @@
 - **Entschieden:** 2026-04-18 (Session 008, QUALITY_CONTROL_008 QK-1)
 - **Entscheidung:** Da Claude API (Stand 2026-04) **kein Audio-Input** unterstützt, werden Tonalitätswerte (Enthusiasmus, Natürlichkeit, Überzeugung) aus V1 gestrichen. V1 liefert textbasierte Transkript-Analyse.
 - **Begründung:** Kein Weg, die Feature mit aktuellen APIs zu bauen. Whisper liefert Transkript, Sonnet analysiert Text.
-- **Auswirkung:** `TonalReport` → `TranscriptQualityReport`. Siehe INKONSISTENZEN.md INK-004/005/006 für noch offene Code-Stellen.
+- **Auswirkung:** `TonalReport` → `TranscriptQualityReport`. Doku-Stellen in S011 vollständig nachgezogen (INK-004/005/006/007); Code (`agents/`) enthielt keine entsprechenden Symbole.
 - **Status:** final
 
 ### [ENT-025] MVP dreistufig: MVP-0 / MVP-1 / MVP-2 (QK-2)
@@ -318,8 +318,8 @@
 - **Status:** offen (Beschaffung ausstehend)
 
 ### [ENT-039] Branch-Namen-Konvention: `master` vs. `main`
-- **Entschieden:** noch offen
-- **Entscheidung:** Offen. PO-Empfehlung: Branch umbenennen zu `main` (`git branch -m master main` + Remote-Update).
-- **Begründung:** Alle Session-Briefs sagen "main"; `main` ist heutige Konvention für Neuprojekte. Alternative: alle Briefe auf `master` korrigieren.
-- **Auswirkung:** Einmaliger Umbenennungsaufwand, danach Konsistenz.
-- **Status:** offen
+- **Entschieden:** 2026-04-20 (Session 011, Nutzer-Entscheidung)
+- **Entscheidung:** `master` bleibt. PO-Empfehlung (Umbenennung zu `main`) wurde verworfen — bestehende Briefe und Doku-Stellen ziehen auf `master` nach.
+- **Begründung:** Vermeidet einmaligen Remote-Umbenennungsaufwand und Default-Branch-Umstellung; Doku-Korrektur war ohnehin nötig (INK-014).
+- **Auswirkung:** Sessions 008/009, ARCHITECTURE §8, COMP_DIARY §2.4, ENT-007 und SESSION_ZUSAMMENFASSUNG auf `master` korrigiert. Zukünftige Briefs nennen ausschließlich `master`.
+- **Status:** final
