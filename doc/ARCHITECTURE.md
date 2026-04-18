@@ -357,7 +357,37 @@ Das macht das System debuggbar und erweiterbar: ein neuer Agent muss nur das Dat
 
 ---
 
-## 5. LangGraph Implementierung
+## 5. Provider-Strategie
+
+### 5.1 Zwei-Modus-Betrieb
+
+Das System kennt zwei Provider-Modi — automatische Auswahl via Umgebungsvariable:
+
+| Modus | Bedingung | Haiku-Rolle | Sonnet-Rolle | Zweck |
+|---|---|---|---|---|
+| **Claude** | `ANTHROPIC_API_KEY` gesetzt | Haiku 4.5 | Sonnet 4.6 | Produktion |
+| **Ollama** | kein API-Key | llama3.2 (o.ä.) | llama3.2 (o.ä.) | Lokale Tests |
+
+Die Auswahl liegt ausschließlich in `agents/base_agent.py` — kein Agent-Code ändert sich. Agenten rufen weiterhin `_haiku()` und `_sonnet()` auf.
+
+```python
+# .env — Produktion
+ANTHROPIC_API_KEY=sk-ant-...
+
+# .env — lokale Tests (kein API-Key nötig)
+OLLAMA_MODEL=llama3.2   # optional, Default: llama3.2
+OLLAMA_HOST=http://localhost:11434  # optional
+```
+
+### 5.2 Qualitäts-Hinweis Ollama-Modus
+
+Ollama/llama3.2 hält strukturierte Ausgabeformate (`key: value`) weniger zuverlässig ein als Claude. Im Test-Modus können einzelne Felder leer oder fehlformatiert sein — das ist kein Bug im Pipeline-Code, sondern ein bekanntes Modell-Limitation. Für reine Mechanik-Tests (LangGraph-Routing, WikiWrite-Objekte, graph_reader) reicht es vollständig.
+
+Für Qualitätstests (story_score, VocabEntry-Inhalt) ist Claude API nötig.
+
+---
+
+## 6. LangGraph Implementierung
 
 ### 5.1 Graph-Struktur (Ingestion Flow)
 
@@ -599,5 +629,5 @@ Nicht jede Änderung braucht manuelle Freigabe — das wäre zu viel Aufwand:
 - [x] Index-Schwellwert: graph_reader Abstraktion mit automatischem Phase 1→2 Switch bei 150 Seiten
 - [x] Nutzer-UI: Telegram Ebene 1 (Buttons/Polls) + Ebene 2 (ConversationHandler); Mini Apps als Upgrade-Pfad
 - [x] Graph-Versionierung: draft → main Branch-Workflow, manuelle Freigabe via Telegram für kritische Änderungen
-- [ ] Ollama lokal: welches Modell für `private`-Tier? (llama3.2 vs. mistral — Qualitäts-Test nötig)
+- [x] Ollama lokal: llama3.2 als Default für `private`-Tier und als Test-Fallback. Qualitätsvergleich llama3.2 vs. mistral steht noch aus — für MVP-0/1 reicht llama3.2.
 - [ ] Keyword-Extraktion für graph_context: wie viele Begriffe, welche Gewichtung (Entitäten > Verben)?

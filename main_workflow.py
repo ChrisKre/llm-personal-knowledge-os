@@ -183,8 +183,22 @@ def _extract_summary_from_write(write: WikiWrite) -> str:
 # ---------------------------------------------------------------------------
 
 def build_workflow(wiki_root: Path = WIKI_ROOT):
-    """Build and compile the LangGraph workflow. Call once at startup."""
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    """Build and compile the LangGraph workflow. Call once at startup.
+
+    Provider selection (automatic):
+      ANTHROPIC_API_KEY set   → Claude Haiku/Sonnet (Produktion)
+      ANTHROPIC_API_KEY unset → Ollama lokal (Tests, kein API-Key nötig)
+    """
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if api_key:
+        client = anthropic.Anthropic(api_key=api_key)
+    else:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "ANTHROPIC_API_KEY nicht gesetzt — Ollama-Fallback aktiv. "
+            "Setze OLLAMA_MODEL und stelle sicher dass `ollama serve` läuft."
+        )
+        client = None
 
     supervisor = Supervisor(wiki_root=wiki_root, anthropic_client=client)
     diary      = DiaryAgent(wiki_root=wiki_root, anthropic_client=client)
