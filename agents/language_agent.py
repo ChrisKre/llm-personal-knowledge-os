@@ -505,8 +505,8 @@ class LanguageAgent(BaseAgent):
             name = cultural["name"]
             e_type = cultural.get("entity_type", "cultural-concept")
             slug = _slugify(name)
-            # Use language code "es" by default for Spanish cultural entries
-            path = f"wiki/language/culture/c_es_{slug}.md"
+            lang_code = _detect_cultural_lang(state)
+            path = f"wiki/language/culture/c_{lang_code}_{slug}.md"
 
             cross_links = ""
             for i in (1, 2):
@@ -525,7 +525,7 @@ class LanguageAgent(BaseAgent):
                 status: elaborated
                 name: "{name}"
                 entry_type: {e_type}
-                language_context: [es]
+                language_context: [{lang_code}]
                 tags: [{cultural.get('tags', '')}]
                 sources: []
                 related: []
@@ -633,6 +633,28 @@ def _guess_entity_type(name: str, context: str) -> str:
     if any(w in context_lower for w in ["festival", "event", "feier", "kurs"]):
         return "event"
     return "cultural-concept"
+
+
+def _detect_cultural_lang(state: LanguageAgentState) -> str:
+    """Infer language code for CulturalEntry from detected words or language profile."""
+    # 1. Use the most common language from detected_words
+    lang_counts: dict[str, int] = {}
+    for word_lang in state.get("detected_words", []):
+        if "|" in word_lang:
+            _, lang = word_lang.split("|", 1)
+            lang_counts[lang] = lang_counts.get(lang, 0) + 1
+    if lang_counts:
+        return max(lang_counts, key=lambda k: lang_counts[k])
+
+    # 2. Fall back to primary_learning_language from user_language_profile
+    profile = state.get("user_language_profile", {})
+    primary = profile.get("primary_learning_language", "")
+    if primary:
+        # Accept both "es" and "Spanish" forms
+        mapping = {"spanish": "es", "english": "en", "french": "fr", "german": "de"}
+        return mapping.get(primary.lower(), primary.lower()[:2])
+
+    return "es"  # last resort default
 
 
 def _has_cultural_trigger(state: LanguageAgentState) -> str:

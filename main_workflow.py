@@ -15,6 +15,7 @@ from typing import TypedDict
 
 import anthropic
 from dotenv import load_dotenv
+from langgraph.constants import Send
 from langgraph.graph import END, StateGraph
 
 from agents import graph_reader
@@ -213,17 +214,20 @@ def build_workflow(wiki_root: Path = WIKI_ROOT):
     wf.set_entry_point("classify")
     wf.add_edge("classify", "fetch_graph_context")
 
-    wf.add_conditional_edges(
-        "fetch_graph_context",
-        supervisor.route,
-        {
-            "diary_agent":    "diary_agent",
-            "language_agent": "language_agent",
-            "both":           "diary_agent",          # simplified: diary only; TODO: LangGraph Send()
-            "query_flow":     "supervisor_review",    # TODO: implement query flow
-            "lint_agent":     "supervisor_review",    # TODO: implement LintAgent routing
-        },
-    )
+    _route_map = {
+        "diary_agent":    "diary_agent",
+        "language_agent": "language_agent",
+        "query_flow":     "supervisor_review",
+        "lint_agent":     "supervisor_review",
+    }
+
+    def route_after_context(state: SupervisorState):
+        intent = supervisor.route(state)
+        if intent == "both":
+            return [Send("diary_agent", state), Send("language_agent", state)]
+        return _route_map.get(intent, "supervisor_review")
+
+    wf.add_conditional_edges("fetch_graph_context", route_after_context)
 
     wf.add_edge("diary_agent",       "supervisor_review")
     wf.add_edge("language_agent",    "supervisor_review")

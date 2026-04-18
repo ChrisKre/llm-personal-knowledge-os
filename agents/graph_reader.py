@@ -17,7 +17,7 @@ from typing import Any
 
 import anthropic
 
-WIKI_PAGE_THRESHOLD = 150
+WIKI_PAGE_THRESHOLD = 30
 WIKI_ROOT = Path(__file__).parent.parent  # repo root
 INDEX_PATH = WIKI_ROOT / "index.md"
 SQLITE_PATH = WIKI_ROOT / "wiki_index.db"
@@ -116,6 +116,19 @@ def fetch_context(state: dict, wiki_root: Path = WIKI_ROOT) -> dict:
 # Phase 1 — index.md keyword search
 # ---------------------------------------------------------------------------
 
+def _slug_to_tags(slug: str) -> list[str]:
+    """Extract pseudo-tags from a slug like 'pf_2026-03-15_fahrrad-unfall'."""
+    # Strip prefix (pf_, v_es_, c_es_, etc.) and date segments
+    parts = re.split(r"[_\-]", slug)
+    tags = []
+    for part in parts:
+        # Skip type prefixes, lang codes, and date parts
+        if len(part) <= 2 or re.fullmatch(r"\d{4}|\d{2}", part):
+            continue
+        tags.append(part.lower())
+    return tags
+
+
 def _search_index_md(
     query: str,
     page_type: str | None,
@@ -128,9 +141,9 @@ def _search_index_md(
         return []
 
     index_text = index_path.read_text(encoding="utf-8")
-    query_terms = set(query.lower().split())
+    keywords = set(_extract_keywords(query))
 
-    results: list[tuple[int, WikiPage]] = []
+    results: list[tuple[float, WikiPage]] = []
 
     # index.md format:
     #   ## PersonalFacts (12)
@@ -141,34 +154,29 @@ def _search_index_md(
 
     lines = index_text.splitlines()
     for line in lines:
-        # Track current section type
         section_match = section_re.match(line)
         if section_match:
-            raw_section = section_match.group(1)
-            current_section_type = _normalize_type(raw_section)
+            current_section_type = _normalize_type(section_match.group(1))
             continue
 
         entry_match = entry_re.match(line.strip())
         if not entry_match:
             continue
 
-        page_ref = entry_match.group(1)       # e.g. "pf_2026-03-15_fahrrad-unfall"
-        summary = entry_match.group(2) or ""  # e.g. "Unfall in München, story_score: 8"
+        page_ref = entry_match.group(1)
+        summary = entry_match.group(2) or ""
 
-        # Apply type filter
         if page_type and current_section_type != page_type:
             continue
 
-        # Apply language filter for VocabEntries (prefix: v_[lang]_)
         if language:
-            lang_prefix = f"v_{language}_"
-            if not page_ref.startswith(lang_prefix):
+            if not page_ref.startswith(f"v_{language}_"):
                 continue
 
-        # Score by query term overlap
-        searchable = (page_ref + " " + summary).lower()
-        score = sum(1 for term in query_terms if term in searchable)
-        if score == 0:
+        # Tags = slug parts + summary keywords
+        entry_tags = set(_slug_to_tags(page_ref)) | set(_extract_keywords(summary))
+        overlap = len(keywords & entry_tags) / max(len(keywords), 1)
+        if overlap == 0:
             continue
 
         page = WikiPage(
@@ -176,10 +184,11 @@ def _search_index_md(
             title=page_ref,
             page_type=current_section_type,
             summary=summary,
+            tags=sorted(entry_tags),
             story_score=_parse_story_score(summary),
             language=_parse_language(page_ref),
         )
-        results.append((score, page))
+        results.append((overlap, page))
 
     results.sort(key=lambda x: x[0], reverse=True)
     return [page for _, page in results[:limit]]
