@@ -37,7 +37,7 @@ Das Modul arbeitet in vier Betriebsmodi:
 | Elaboration + narrative_hook         | Sonnet 4.6        | Kreatives Schreiben, Pointe herausarbeiten    |
 | Impuls-Generator                     | Haiku 4.5         | Template-Kombinatorik, kein deep reasoning    |
 | Story-Lab Feedback                   | Sonnet 4.6        | Coaching erfordert präzise Sprache            |
-| Audio-Analyse (Tonalität)            | Sonnet 4.6        | Audio-Input, qualitative Bewertung            |
+| Transkript-Qualitätsanalyse          | Sonnet 4.6        | Text-Input, Struktur- und Qualitätsbewertung  |
 | Korrelations-Engine (Kandidaten)     | Haiku 4.5         | Keyword-Matching, günstiger Scan              |
 | Korrelations-Engine (Cluster-Analyse)| Sonnet 4.6        | Semantische Verbindungen erkennen             |
 | StyleFingerprint-Extraktion          | Sonnet 4.6        | Timing + Struktur + Muster aus einem Clip     |
@@ -585,7 +585,7 @@ STORY_LAB_STATES = {
     "STYLE_PRESENT",   # Bot zeigt Fact + empfohlene Stil-Karte
     "STYLE_CONFIRM",   # Nutzer bestätigt Stil oder wählt anderen
     "AWAIT_VOICE",     # Bot wartet auf Sprachnachricht
-    "ANALYSIS",        # Intern: Whisper + Claude Audio (kein User-Input)
+    "ANALYSIS",        # Intern: Whisper Timing + Transkript-Qualitätsanalyse (kein User-Input)
     "FEEDBACK",        # Bot zeigt kombiniertes Feedback
     "RETRY_PROMPT",    # Bot fragt: anderer Stil? nochmal? fertig?
     "COMPARE",         # Falls ≥ 2 Versuche: Vergleich der Versionen
@@ -617,8 +617,8 @@ Bot: "📊 Deine Version:
      Timing:   Pacing gut (2.1 Wörter/Sek) ✓
                Pause vor Pointe: 0.8 Sek — etwas kurz, 1.5s wäre stärker
      
-     Ton:      Enthusiasmus: 4/5 ✓
-               Natürlichkeit: 3/5 — klingt leicht vorbereitet
+     Transkript: Struktur: 4/5 ✓
+               Klarheit: 3/5 — Einstieg etwas unklar
                Überzeugungskraft: 4/5 ✓
      
      Coaching: 'Lass nach dem Satz des Lehrers eine längere Stille —
@@ -673,48 +673,49 @@ def analyze_timing(segments: list[Segment]) -> TimingReport:
     )
 ```
 
-#### Stufe 2 — Claude Audio-Analyse (Ton & Natürlichkeit)
+#### Stufe 2 — Transkript-Qualitätsanalyse (Struktur & Erzählqualität)
 
-Die rohe Telegram-Sprachnachricht (OGG) wird direkt an Claude Sonnet übergeben — kein zusätzliches Tool:
+> **V1-Einschränkung:** Claude API unterstützt kein Audio-Input (OGG/MP3). Tonalitätswerte
+> (Enthusiasmus, Natürlichkeit) sind in V1 nicht verfügbar. Stufe 2 analysiert stattdessen
+> den Whisper-Transkripttext auf Erzählstruktur und Verbesserungspotential.
+> Audio-Analyse folgt wenn eine Audio-API verfügbar ist.
 
 ```python
-TONAL_ANALYSIS_PROMPT = """
-Höre dir diese Sprachaufnahme eines persönlichen Moments an.
-Der Sprecher versucht eine Geschichte natürlich zu erzählen.
+TRANSCRIPT_QUALITY_PROMPT = """
+Analysiere dieses Transkript einer mündlich erzählten Geschichte.
+Der Sprecher versucht einen persönlichen Moment natürlich zu erzählen.
+
+Transkript:
+---
+{transcript}
+---
 
 Bewerte auf einer Skala 1–5:
-- enthusiasmus:     Klingt der Sprecher engagiert und bei der Sache?
-- natuerlichkeit:   Klingt es wie ein echtes Gespräch oder geskriptet/einstudiert?
-- ueberzeugung:     Würde ein Zuhörer dieser Geschichte glauben/folgen wollen?
+- struktur:      Gibt es einen klaren Aufbau (Einstieg → Mitte → Pointe)?
+- klarheit:      Ist die Geschichte verständlich ohne Vorwissen?
+- ueberzeugung:  Würde ein Zuhörer der Geschichte folgen wollen?
 
 Zusatz:
-- pause_vor_pointe: Gibt es eine spürbare Pause vor dem entscheidenden Moment?
+- pointe_erkennbar: Ist die Pointe/Wendung klar erkennbar im Transkript?
   (ja / schwach / nein)
 
 Antworte im Format:
-enthusiasmus: [1-5]
-natuerlichkeit: [1-5]
+struktur: [1-5]
+klarheit: [1-5]
 ueberzeugung: [1-5]
-pause_vor_pointe: [ja | schwach | nein]
-empfehlung: [1 konkreter Satz — was würde diese Version stärker machen?]
+pointe_erkennbar: [ja | schwach | nein]
+empfehlung: [1 konkreter Satz — was würde die nächste Version stärker machen?]
 """
 
-def analyze_tonal(audio_ogg_path: Path, fact: WikiPage) -> TonalReport:
-    with open(audio_ogg_path, "rb") as f:
-        audio_data = base64.b64encode(f.read()).decode()
-    
+def analyze_transcript_quality(transcript_text: str, fact: WikiPage) -> TranscriptQualityReport:
     response = claude_client.messages.create(
         model="claude-sonnet-4-6",
         messages=[{
             "role": "user",
-            "content": [
-                {"type": "document", "source": {"type": "base64",
-                 "media_type": "audio/ogg", "data": audio_data}},
-                {"type": "text", "text": TONAL_ANALYSIS_PROMPT}
-            ]
+            "content": TRANSCRIPT_QUALITY_PROMPT.format(transcript=transcript_text[:2000])
         }]
     )
-    return _parse_tonal_report(response.content[0].text)
+    return _parse_transcript_quality_report(response.content[0].text)
 ```
 
 #### Kombiniertes Feedback
@@ -930,8 +931,8 @@ def process_impuls_response(
     transcript = whisper_model.transcribe(voice_ogg)
     timing     = analyze_timing(transcript.segments)
     
-    # Claude Audio: Tonalität (volles Story-Lab-Niveau)
-    tonal = analyze_tonal(voice_ogg, impuls)
+    # Transkript-Qualitätsanalyse (V1: text-only; Audio-Tonalität folgt in V2)
+    tonal = analyze_transcript_quality(transcript.text, impuls)
     
     # Feedback mit StyleProfile-Vergleich — kein abgeschwächtes "Light-Feedback"
     feedback = generate_story_lab_feedback(
