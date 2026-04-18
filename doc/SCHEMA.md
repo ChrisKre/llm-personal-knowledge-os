@@ -1,5 +1,5 @@
 # SCHEMA.md — Die Verfassung des LLM-Personal-Knowledge-OS
-> Version: 0.2 | Datum: 2026-04-18 | Status: DRAFT
+> Version: 0.3 | Datum: 2026-04-18 | Status: DRAFT
 
 ---
 
@@ -22,12 +22,15 @@ knowledge-os/
 ├── raw/                        # [IMMUTABLE] Rohdaten — KI liest, nie schreibt
 │   ├── events/                 # Telegram-Inputs, Trigger-Nachrichten (JSON + MD)
 │   ├── sources/                # Artikel, PDFs, Web-Clips (Obsidian Web Clipper)
-│   └── assets/                 # Bilder, Audio (lokal gespeichert)
+│   ├── assets/                 # Bilder, Audio (lokal gespeichert)
+│   └── style_refs/             # Stil-Referenz-Medien (IMMUTABLE)
+│       └── [name]/             # je Referenz: chappelle/, ted-talk/, ...
 │
 ├── wiki/                       # [LLM-OWNED] Kompiliertes Wissen
 │   ├── personal/               # Personal Facts, Diary-Einträge
 │   │   ├── facts/              # Einzelne PersonalFact-Seiten
-│   │   └── stories/            # Ausgearbeitete Geschichten/Pointen
+│   │   ├── stories/            # Ausgearbeitete Geschichten/Pointen
+│   │   └── style_refs/         # StyleProfile-Seiten (sp_[name].md)
 │   ├── language/               # Mehrsprachiges Vokabular, Grammatik, Kultur
 │   │   ├── vocab/              # Einzelne VocabEntry-Seiten (alle Sprachen)
 │   │   ├── grammar/            # Grammatik-Konzepte (je Sprache)
@@ -144,6 +147,78 @@ Lebt in `wiki/language/bridges/`. Wird vom Language-Agent automatisch erzeugt we
 - `processed`: `true` | `false`
 - `wiki_refs`: Links zu erzeugten/aktualisierten Wiki-Seiten
 
+### 3.6 `StyleProfile`
+> Aggregiertes Stil-Profil einer Redner-/Comedian-Referenz. Entsteht durch Aggregation mehrerer `StyleFingerprints` aus `raw/style_refs/[name]/`. Lebt in `wiki/personal/style_refs/sp_[name].md`.
+
+**Felder:**
+- `name`: Bezeichner der Referenz (z.B. `"chappelle"`, `"ted-talk"`)
+- `sample_count`: Anzahl beitragender Clips/Transcripts
+- `confidence`: 0.0–1.0 (Schwellwerte: 1→0.25, 3→0.60, 5→0.85, 8→1.00)
+- `avg_words_per_second`: Sprechtempo-Mittelwert (nur wenn Audio-Samples vorhanden)
+- `avg_pause_before_punchline`: Ø Pause vor der Pointe in Sekunden (nur Audio)
+- `setup_ratio`: Mittelwert Aufbau vs. Pointe über alle Samples (0.0–1.0)
+- `key_patterns`: Kern-Muster die in ≥50% der Clips vorkommen
+- `style_tags`: Labels mit Häufigkeit ≥50% der Clips
+- `sources`: Pfade zu allen beitragenden Dateien in `raw/style_refs/[name]/`
+
+**Ab wann nutzbar für Feedback:** ab `confidence >= 0.60` (≥3 Samples).
+
+**Verknüpfung:** StyleProfiles verlinken nicht auf andere Wiki-Entitäten, aber PersonalFact-`practice_log`-Einträge referenzieren das jeweils aktive StyleProfile via `style_profile_ref`.
+
+### 3.7 System-Dateien (`user_profile.md`, `index.md`, `log.md`)
+
+Diese drei Dateien sind **keine Wiki-Entitäten** — sie haben keinen `type:`-Eintrag im Frontmatter und leben direkt im Repo-Root neben `SCHEMA.md`. Sie werden ausschließlich von Agenten geschrieben.
+
+#### `user_profile.md` — Komprimierte Nutzersignatur
+
+Immer im Supervisor-Kontext geladen (~80–120 Zeilen). Template:
+
+```markdown
+---
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+
+# Nutzer-Profil
+
+## Sprachprofil
+- Primärsprache: de
+- Aktive Zielsprachen: [es, en]
+- Input-Verteilung (30 Tage): de: 60%, es: 30%, en: 10%
+- Input-Verteilung (90 Tage): de: 65%, es: 25%, en: 10%
+
+## Interessen-Cluster
+- [Cluster-Name] (hoch | mittel | niedrig) — [Basis: N Seiten]
+
+## Personal-Facts-Profil
+- Gesamt: N PersonalFacts
+- story_score Durchschnitt: X.X
+- High-Score Facts (≥7) ungeübt: N
+- Zuletzt elaboriert: YYYY-MM-DD
+
+## Bootstrap
+bootstrap_progress: N/10
+bootstrap_complete: true | false
+bootstrap_started: YYYY-MM-DD
+
+## Style
+active_style_profile: "[name]" | null
+
+## Schwellwerte (System-Defaults, überschreibbar)
+concept_threshold: 3
+story_score_elaborate_threshold: 6
+story_score_review_required: 7
+stale_raw_days: 7
+```
+
+#### `index.md` — Inhaltsverzeichnis aller Wiki-Seiten
+
+Append-only pro Entitätstyp. Format wie in ARCHITECTURE.md §2.2 beschrieben.
+
+#### `log.md` — Chronologisches Operationslog
+
+Append-only. Format: `## [YYYY-MM-DDTHH:MM] operation | Kurzbeschreibung`
+
 ---
 
 ## 4. Dateinamen-Konventionen
@@ -156,6 +231,7 @@ Lebt in `wiki/language/bridges/`. Wird vom Language-Agent automatisch erzeugt we
 | LanguageBridge | `lb_`   | `lb_[lang1]-[lang2]_kebab-topic.md`  | `lb_es-en_faux-amis-embarazada.md`    |
 | Concept        | `con_`  | `con_kebab-concept.md`               | `con_storytelling-struktur.md`        |
 | RawEvent       | —       | `YYYY-MM-DDTHH-MM-SS_source.json`    | `2026-04-18T09-32-11_telegram.json`   |
+| StyleProfile   | `sp_`   | `sp_[name].md`                       | `sp_chappelle.md`, `sp_ted-talk.md`   |
 
 ---
 
