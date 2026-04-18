@@ -24,12 +24,18 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-def _check_api_key() -> bool:
+def _detect_provider() -> str:
+    """Returns 'claude', 'ollama', or 'none'."""
+    import requests as _req
     key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not key or key.startswith("sk-ant-PLACEHOLDER"):
-        print("[WARN] ANTHROPIC_API_KEY nicht gesetzt. Dry-run ohne API-Calls.")
-        return False
-    return True
+    if key and not key.startswith("sk-ant-PLACEHOLDER"):
+        return "claude"
+    ollama_host = os.environ.get("OLLAMA_HOST", "http://localhost:11434")
+    try:
+        _req.get(f"{ollama_host}/api/tags", timeout=3)
+        return "ollama"
+    except Exception:
+        return "none"
 
 
 def _print_section(title: str) -> None:
@@ -70,18 +76,20 @@ def main() -> None:
     parser.add_argument("--json", dest="as_json", action="store_true", help="Dump full state as JSON")
     args = parser.parse_args()
 
-    has_key = _check_api_key()
-
-    if not has_key:
-        print("\nKein API-Key — zeige nur den geplanten raw_event:\n")
-        raw_event = {
-            "content": args.text,
-            "user_hint": args.hint,
-            "source": "cli",
-            "media_type": "text",
-        }
-        print(json.dumps(raw_event, ensure_ascii=False, indent=2))
-        print("\nSetze ANTHROPIC_API_KEY um den vollen Pipeline-Test zu starten.")
+    provider = _detect_provider()
+    if provider == "claude":
+        print("  Provider: Claude API")
+    elif provider == "ollama":
+        model = os.environ.get("OLLAMA_MODEL", "llama3.2")
+        print(f"  Provider: Ollama ({model}) — kein API-Key nötig")
+    else:
+        print("[WARN] Weder ANTHROPIC_API_KEY noch Ollama erreichbar.")
+        print("       Zeige nur raw_event (kein Pipeline-Lauf möglich):\n")
+        print(json.dumps({
+            "content": args.text, "user_hint": args.hint,
+            "source": "cli", "media_type": "text",
+        }, ensure_ascii=False, indent=2))
+        print("\nOptionen:\n  A) ollama pull llama3.2 && ollama serve\n  B) ANTHROPIC_API_KEY=... in .env setzen")
         return
 
     from main_workflow import WIKI_ROOT, SupervisorState, _load_graph_index, _load_user_profile, build_workflow
