@@ -1,0 +1,36 @@
+# LLM-Personal-Knowledge-OS — Python Dependencies
+# Session 005 | 2026-04-18
+# After first install: pin exact versions with `pip freeze > requirements.lock`
+
+# --- Claude API ---
+anthropic>=0.40.0
+
+# --- Agent Framework ---
+langgraph>=0.2.0
+
+# --- HTTP + Web Extraction ---
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+lxml>=5.0.0
+
+# --- Document Extraction ---
+pdfplumber>=0.10.0
+
+# --- Audio / Video (Whisper) ---
+faster-whisper>=1.0.0
+# Note: ffmpeg must be installed separately (winget install ffmpeg  or  choco install ffmpeg)
+
+# --- YouTube ---
+youtube-transcript-api>=0.6.0
+
+# --- Telegram Bot (with APScheduler for scheduled jobs) ---
+python-telegram-bot[job-queue]>=21.0.0
+
+# --- Language Detection ---
+langdetect>=1.0.9
+
+# --- File Watching (Style References auto-ingest) ---
+watchdog>=4.0.0
+
+# --- Environment / Config ---
+python-dotenv>=1.0.0
