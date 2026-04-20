@@ -5,12 +5,15 @@ Leitet weiter an: Extractor → raw/events/ → main_workflow.run_ingest()
 Sendet: Bestätigung an Nutzer
 
 Start: python bot.py
-Voraussetzung: TELEGRAM_BOT_TOKEN + ANTHROPIC_API_KEY in .env
+Voraussetzung: TELEGRAM_BOT_TOKEN in .env
+Optional:      ANTHROPIC_API_KEY (ohne Key → Ollama-Fallback)
+               TELEGRAM_ALLOWED_USER_ID (leer → Filter deaktiviert, Discovery-Modus)
 """
 
 from __future__ import annotations
 
 import asyncio
+import functools
 import logging
 import os
 from pathlib import Path
@@ -38,8 +41,41 @@ logger = logging.getLogger(__name__)
 
 WIKI_ROOT = Path(__file__).parent
 
-_client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+_api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
+_client = anthropic.Anthropic(api_key=_api_key) if _api_key else None
 _extractor = Extractor(wiki_root=WIKI_ROOT, anthropic_client=_client)
+if _client is None:
+    logger.info("Kein ANTHROPIC_API_KEY — Ollama-Fallback aktiv.")
+
+_allowed_user_raw = os.environ.get("TELEGRAM_ALLOWED_USER_ID", "").strip()
+_ALLOWED_USER_ID: int | None = int(_allowed_user_raw) if _allowed_user_raw else None
+if _ALLOWED_USER_ID is None:
+    logger.warning(
+        "TELEGRAM_ALLOWED_USER_ID nicht gesetzt — Discovery-Modus (jeder darf schreiben). "
+        "User-ID aus Log ablesen, in .env eintragen, Bot neu starten."
+    )
+else:
+    logger.info("Auth-Filter aktiv für User-ID %s.", _ALLOWED_USER_ID)
+
+
+def _require_allowed_user(func):
+    """Decorator — blockt Handler für fremde User-IDs, loggt Rejection.
+
+    Discovery-Modus: wenn TELEGRAM_ALLOWED_USER_ID leer ist, wird jede eingehende
+    User-ID einmal geloggt und durchgelassen — dient nur dem Erstbefüllen der .env.
+    """
+    @functools.wraps(func)
+    async def wrapper(update: Update, context, *args, **kwargs):
+        user = update.effective_user
+        uid = user.id if user else None
+        if _ALLOWED_USER_ID is None:
+            logger.info("DISCOVERY — eingehende user_id=%s (username=%s)", uid, user.username if user else None)
+            return await func(update, context, *args, **kwargs)
+        if uid != _ALLOWED_USER_ID:
+            logger.warning("REJECTED user_id=%s (erwartet %s)", uid, _ALLOWED_USER_ID)
+            return
+        return await func(update, context, *args, **kwargs)
+    return wrapper
 
 # ---------------------------------------------------------------------------
 # Bootstrap ConversationHandler states
@@ -108,6 +144,7 @@ async def _download_file(context, file_id: str, dest: Path) -> None:
 # Normal message handlers
 # ---------------------------------------------------------------------------
 
+@_require_allowed_user
 async def handle_text(update: Update, context) -> None:
     text = update.message.text or ""
     user_hint = ""
@@ -121,6 +158,7 @@ async def handle_text(update: Update, context) -> None:
     await _process_and_reply(update, text, user_hint=user_hint)
 
 
+@_require_allowed_user
 async def handle_voice(update: Update, context) -> None:
     voice = update.message.voice
     dest = WIKI_ROOT / "raw" / "assets" / f"{voice.file_unique_id}.ogg"
@@ -128,6 +166,7 @@ async def handle_voice(update: Update, context) -> None:
     await _process_and_reply(update, dest, user_hint=update.message.caption or "")
 
 
+@_require_allowed_user
 async def handle_photo(update: Update, context) -> None:
     photo = update.message.photo[-1]   # largest resolution
     dest = WIKI_ROOT / "raw" / "assets" / f"{photo.file_unique_id}.jpg"
@@ -135,6 +174,7 @@ async def handle_photo(update: Update, context) -> None:
     await _process_and_reply(update, dest, user_hint=update.message.caption or "")
 
 
+@_require_allowed_user
 async def handle_document(update: Update, context) -> None:
     doc  = update.message.document
     name = doc.file_name or f"{doc.file_unique_id}.bin"
@@ -143,6 +183,7 @@ async def handle_document(update: Update, context) -> None:
     await _process_and_reply(update, dest, user_hint=update.message.caption or "")
 
 
+@_require_allowed_user
 async def handle_video(update: Update, context) -> None:
     video = update.message.video or update.message.video_note
     dest  = WIKI_ROOT / "raw" / "assets" / f"{video.file_unique_id}.mp4"
@@ -154,6 +195,7 @@ async def handle_video(update: Update, context) -> None:
 # Bootstrap ConversationHandler
 # ---------------------------------------------------------------------------
 
+@_require_allowed_user
 async def bootstrap_start(update: Update, context) -> int:
     context.user_data["bootstrap_q"] = 0
     await update.message.reply_text(
@@ -210,6 +252,20 @@ async def bootstrap_cancel(update: Update, context) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Global error handler
+# ---------------------------------------------------------------------------
+
+async def _global_error_handler(update: object, context) -> None:
+    """Fängt Exceptions aus der Telegram-Library (Netz, API) die sonst das Polling killen."""
+    logger.error("uncaught handler error: %s", context.error, exc_info=context.error)
+    if isinstance(update, Update) and update.message is not None:
+        try:
+            await update.message.reply_text("⚠️ Systemfehler. Log geprüft.")
+        except Exception:
+            pass
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -234,6 +290,8 @@ def main() -> None:
     app.add_handler(MessageHandler(filters.PHOTO,                   handle_photo))
     app.add_handler(MessageHandler(filters.Document.ALL,            handle_document))
     app.add_handler(MessageHandler(filters.VIDEO | filters.VIDEO_NOTE, handle_video))
+
+    app.add_error_handler(_global_error_handler)
 
     logger.info("Bot gestartet — polling...")
     app.run_polling(drop_pending_updates=True)
