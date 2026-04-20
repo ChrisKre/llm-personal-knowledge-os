@@ -19,10 +19,10 @@
 | Scoring & Elaboration | ENT-008, ENT-010, ENT-011 |
 | Story-Lab / Impuls | ENT-019, ENT-020, ENT-021, ENT-022, ENT-024 |
 | Services (GE-001) | ENT-012, ENT-026 |
-| MVP-Scope | ENT-025, ENT-030, ENT-032, ENT-038 |
+| MVP-Scope | ENT-025, ENT-030, ENT-032, ENT-038, ENT-044 |
 | Routing | ENT-029 |
-| Prozess & Dokumentation | ENT-023, ENT-034, ENT-035, ENT-036, ENT-037 |
-| UX-Radar / Telegram-UX | ENT-040, ENT-041, ENT-042, ENT-043 |
+| Prozess & Dokumentation | ENT-023, ENT-034, ENT-035, ENT-036, ENT-037, ENT-046 |
+| UX-Radar / Telegram-UX | ENT-040, ENT-041, ENT-042, ENT-043, ENT-045 |
 | Offene Entscheidungen | ENT-039 |
 
 ---
@@ -357,4 +357,29 @@
 - **Entscheidung:** `master` bleibt. PO-Empfehlung (Umbenennung zu `main`) wurde verworfen — bestehende Briefe und Doku-Stellen ziehen auf `master` nach.
 - **Begründung:** Vermeidet einmaligen Remote-Umbenennungsaufwand und Default-Branch-Umstellung; Doku-Korrektur war ohnehin nötig (INK-014).
 - **Auswirkung:** Sessions 008/009, ARCHITECTURE §8, COMP_DIARY §2.4, ENT-007 und SESSION_ZUSAMMENFASSUNG auf `master` korrigiert. Zukünftige Briefs nennen ausschließlich `master`.
+- **Status:** final
+
+---
+
+## Session 019 — MVP-2-Kickoff (2026-04-20)
+
+### [ENT-044] MVP-2 Erstes Feature: Voice-Ingest
+- **Entschieden:** 2026-04-20 (Session 019, PO-Beschluss nach Nutzer-Bestätigung "Voice=ja")
+- **Entscheidung:** Erstes MVP-2-Feature ist **Voice-Ingest** (Sprachnachricht → Whisper-Transkript → Ingest-Pipeline). Anki-Export wandert auf MVP-2-Zweitwelle und wird nach Voice-Ingest-Abnahme geplant.
+- **Begründung:** Nutzer schickt regelmäßig Sprachnachrichten an Telegram (PO-Rückfrage in S019 bestätigt). `agents/extractors/audio_extractor.py` ist bereits implementiert (faster-whisper, lokal, kostenlos); `faster-whisper>=1.0.0` steht in `requirements.txt`; bot.py-Voice-Handler ruft `_extractor.extract(dest)` korrekt auf — d.h. kein Neu-Bau, sondern **Verify + Iterate** (Echtfehler-Test, Sprach-Detection DE/ES, lange Nachrichten, Hintergrund). Aufwand deutlich kleiner als im Session-018-Brief (2–3h) geschätzt — eher 1–2h + Edge-Cases.
+- **Auswirkung:** Architekt prüft in Session 020 den vollständigen Voice-Pfad end-to-end. Whisper-Modell "small" (CPU/int8) bleibt Default; kein API-Call, keine zusätzlichen Kosten. Anki-Export (Platzhalter in `language_agent.schedule_anki`) bleibt in MVP-2 im Scope, aber als Zweitwelle nach Voice-Abnahme.
+- **Status:** beschlossen, Umsetzung ausstehend (Session 020)
+
+### [ENT-045] Proaktiver Kanal: grundsätzlich freigegeben, opt-in
+- **Entschieden:** 2026-04-20 (Session 019, PO-Beschluss)
+- **Entscheidung:** Der Bot darf **unaufgefordert Nachrichten senden**, sobald I5 (Morgen-Kaffee) oder ENT-019-Impulse implementiert werden — aber nur unter vier nicht-verhandelbaren Bedingungen: (1) **Opt-in** per expliziter Nutzerwahl (kein Default-An), (2) **24h-TTL** pro Impuls (unbeantwortete Impulse werden verworfen, nicht gestapelt), (3) **Pausier-Kommando** (z.B. `/pause 7d`) ohne Friction, (4) **Haiku-only** für Impuls-Generierung zur Kosten-Eindämmung.
+- **Begründung:** CHANCEN §1.4 und §2.3 — das System ist konzeptuell zweiseitig; ein reiner Postkasten verschenkt die "Gewohnheit-stapeln"-Wirkung. Aber UX-Radar §3.2 I5 mahnt ausdrücklich: "Ritual muss Nein können". Die vier Bedingungen übersetzen das in Policy.
+- **Auswirkung:** Gilt als Rahmen für alle zukünftigen proaktiven Features (ENT-019 Impulse, I4 Pinned Dashboard, I5 Morgen-Kaffee). Scheduler-Implementierung ist Architektur-Entscheidung (APScheduler im Bot-Prozess vs. externer Cron) — nicht hier festgelegt.
+- **Status:** final (Policy), konkrete Implementierung erst bei Feature-Trigger
+
+### [ENT-046] UX-Radar-Dokumentationsform: ENT-Einträge in ENTSCHEIDUNGEN.md
+- **Entschieden:** 2026-04-20 (Session 019, PO-Beschluss zu E3 aus S018-Brief)
+- **Entscheidung:** Beschlüsse zu UX-Radar-Ideen werden ausschließlich als ENT-Einträge in `doc/ENTSCHEIDUNGEN.md` dokumentiert. Der UX-Radar (`sessions_ux/ux_001_initial-radar.md`) bleibt **unverändert als Radar** — nichts wird dort inline ergänzt. Kein separates `ux_001_po-response.md`.
+- **Begründung:** ENT-040/041/042/043 haben bereits demonstriert, dass ENT-Einträge der richtige Ort sind — sie sind numeriert, stabil, chronologisch und themen-indiziert. Ein zweites Dokument wäre Doppelspur. Das PO-Rollenprofil verlangt explizit "ENT-* Stabilität" als nicht-verhandelbares Prinzip — alles andere würde das unterlaufen.
+- **Auswirkung:** Zukünftige UX-Radare (ux_002, ux_003, ...) werden genauso behandelt: Radar bleibt Radar, Beschlüsse wandern nach ENT-NNN mit expliziter Rück-Referenz auf die Radar-ID.
 - **Status:** final
