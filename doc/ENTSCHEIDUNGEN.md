@@ -22,6 +22,7 @@
 | MVP-Scope | ENT-025, ENT-030, ENT-032, ENT-038 |
 | Routing | ENT-029 |
 | Prozess & Dokumentation | ENT-023, ENT-034, ENT-035, ENT-036, ENT-037 |
+| UX-Radar / Telegram-UX | ENT-040, ENT-041, ENT-042, ENT-043 |
 | Offene Entscheidungen | ENT-039 |
 
 ---
@@ -316,6 +317,40 @@
 - **Begründung:** Ollama-Qualität reicht nicht für story_score-Kalibrierung und Supervisor-Entscheidungen in echtem Betrieb.
 - **Auswirkung:** Session 011 hängt an Key-Beschaffung. Erwartete Kosten <$1/Monat.
 - **Status:** offen (Beschaffung ausstehend)
+
+---
+
+## Session 015 — Team-Meeting UX-Radar (2026-04-19)
+
+### [ENT-040] I1 (Inhaltliche Bestätigung): in MVP-1-Scope aufgenommen
+- **Entschieden:** 2026-04-19 (Session 015, PO-Beschluss)
+- **Entscheidung:** I1 wird in den MVP-1-Scope aufgenommen — Umsetzung **nach Phase-6-Abschluss**, inline innerhalb der Phase-6-Session, keine eigene Implementierungs-Session.
+- **Begründung:** Macht den Qualitätsunterschied zwischen Ollama- und Claude-Lauf für den Nutzer unmittelbar sichtbar. Kein Schema-Impact, kein neuer LLM-Call — reine Python-Formatierung auf existierenden State-Feldern (`graph_context`, `wiki_writes`, `story_score`).
+- **Auswirkung:** [bot.py:123-124](../bot.py#L123-L124) — statt `w["path"].split("/")[-1]` wird ein Title + story_score + 1-Zeile-graph_context-Render ausgegeben. Implementierung: Architekt in Phase 6.
+- **Status:** beschlossen, Umsetzung ausstehend (nach Phase 6)
+
+### [ENT-041] I6 (Menschlichere Fehler): in MVP-1-Scope aufgenommen
+- **Entschieden:** 2026-04-19 (Session 015, PO-Beschluss)
+- **Entscheidung:** I6 wird in den MVP-1-Scope aufgenommen — Umsetzung **nach Phase-6-Abschluss**, inline in Phase-6-Session.
+- **Begründung:** `⚠️ Systemfehler. Log geprüft.` ist funktional korrekt, aber uneinladend. Reine Formatierungsänderung ohne Kosten-Impact; Exception weiterhin vollständig ins Log.
+- **Auswirkung:** [bot.py:131-133](../bot.py#L131-L133) + [bot.py:261-265](../bot.py#L261-L265) — menschlichere Fehlermeldung + InlineKeyboard mit "Nochmal versuchen" / "Details" / "Egal". QM: Exception bleibt im Log, Nutzermeldung wird handlungsorientiert.
+- **Status:** beschlossen, Umsetzung ausstehend (nach Phase 6)
+
+### [ENT-042] UX-Radar I1–I10: Klassifikation offiziell bestätigt
+- **Entschieden:** 2026-04-19 (Session 015, Team-Beschluss)
+- **Entscheidung:** Die von der UX-Kollegin vorgeschlagene Einteilung der zehn Radar-Ideen wird unverändert bestätigt: I1+I6 als MVP-1-Politur (nach Phase 6), I2 bei reproduzierbarem `intent=ambiguous`, I3/I4/I5/I8 frühestens MVP-2, I7 erst mit Update-Pfad in LangGraph, I9 nur bei belegtem Mobile-Schmerz, I10 nach ≥5 realen Bootstraps.
+- **Begründung:** UX-Einteilung ist konservativ und projektkonform. Expliziter Beschluss verhindert, dass der Radar im Limbo bleibt.
+- **Auswirkung:** [sessions_ux/ux_001_initial-radar.md](../sessions_ux/ux_001_initial-radar.md) gilt als offiziell klassifiziert. Keine Idee außerhalb der beschlossenen Einordnung vorzuziehen ohne neuen PO-Beschluss.
+- **Status:** final
+
+### [ENT-043] `telegram_state`-Architektur: Option A (Feld in `user_profile.md`)
+- **Entschieden:** 2026-04-19 (Session 015, Architekt-Empfehlung, PO bestätigt)
+- **Entscheidung:** Wenn I4 (Pinned Dashboard) oder I5 (Morgen-Kaffee) implementiert werden, wird persistenter Telegram-Zustand als dedizierter `telegram_state:`-YAML-Block am Ende von `user_profile.md` gespeichert — klar von persönlichen Facts getrennt.
+- **Begründung:** Graph-nativ, kein neuer Artefakt-Typ, ein einziger Integer (Pinned-Message-ID) oder kleines YAML-Block belastet die Datei nicht merklich. Option B (eigene `.state/`-Datei) würde einen neuen Artefakt-Typ einführen, der nicht in Obsidian navigierbar wäre.
+- **Auswirkung:** Gilt als Richtlinie für UX-Ausarbeitung (I4/I5). Kein Code-Impact heute — I4/I5 sind frühestens MVP-2 (ENT-042).
+- **Status:** final (Architektur-Präferenz, Umsetzung erst bei I4/I5)
+
+---
 
 ### [ENT-039] Branch-Namen-Konvention: `master` vs. `main`
 - **Entschieden:** 2026-04-20 (Session 011, Nutzer-Entscheidung)
