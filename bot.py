@@ -20,9 +20,10 @@ from pathlib import Path
 
 import anthropic
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     Application,
+    CallbackQueryHandler,
     CommandHandler,
     ConversationHandler,
     MessageHandler,
@@ -99,29 +100,124 @@ BOOTSTRAP_QUESTIONS = [
 
 
 # ---------------------------------------------------------------------------
+# I1: Inhaltliche Bestätigung (ENT-040)
+# ---------------------------------------------------------------------------
+
+def _format_write_confirmation(writes: list, graph_context: list) -> str:
+    """Render inhaltliche Bestätigung nach erfolgreichem Wiki-Write."""
+    first = writes[0]
+    content = first.get("content", "")
+
+    title = first["path"].split("/")[-1]
+    for line in content.splitlines():
+        if line.startswith("# ") and not line.startswith("## "):
+            title = line[2:].strip()
+            break
+
+    score = None
+    for line in content.splitlines():
+        if "story_score:" in line:
+            try:
+                score = int(line.split(":", 1)[1].strip())
+            except (ValueError, IndexError):
+                pass
+            break
+
+    cluster = ""
+    if graph_context:
+        cluster = getattr(graph_context[0], "title", "") or ""
+
+    lines = [f"✓ {title} gespeichert"]
+    if score is not None:
+        lines.append(f"  story_score {score} · {len(writes)} verknüpfte Facts")
+    else:
+        lines.append(f"  {len(writes)} Facts gespeichert")
+    if cluster:
+        lines.append(f'  "{cluster}" wächst.')
+
+    return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# I6: Menschlichere Fehler (ENT-041)
+# ---------------------------------------------------------------------------
+
+_ERROR_KEYBOARD = InlineKeyboardMarkup([[
+    InlineKeyboardButton("🔁 Nochmal versuchen", callback_data="retry"),
+    InlineKeyboardButton("📋 Details",           callback_data="error_details"),
+    InlineKeyboardButton("🙈 Egal, weiter",      callback_data="error_dismiss"),
+]])
+
+
+async def _reply_error_keyboard(update: Update, context, exc: Exception) -> None:
+    """Menschlichere Fehlermeldung mit InlineKeyboard (ENT-041)."""
+    context.user_data["last_error"] = str(exc)
+    await update.message.reply_text(
+        "🤔 Hm — da ist was schiefgelaufen.\n"
+        "Dein Input ist nicht verloren (steht in raw/events/).",
+        reply_markup=_ERROR_KEYBOARD,
+    )
+
+
+async def handle_error_callback(update: Update, context) -> None:
+    """Callback handler für I6-Error-InlineKeyboard-Buttons."""
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "retry":
+        raw_event = context.user_data.get("last_raw_event")
+        if not raw_event:
+            await query.message.reply_text("⚠️ Kein Event zum Wiederholen gespeichert.")
+            return
+        if context.user_data.get("retry_in_progress"):
+            return  # Idempotenz: Doppeldruck ignorieren
+        context.user_data["retry_in_progress"] = True
+        try:
+            result = await asyncio.to_thread(run_ingest, raw_event)
+            writes   = result.get("wiki_writes", [])
+            graph_ctx = result.get("graph_context", [])
+            if writes:
+                await query.message.reply_text(_format_write_confirmation(writes, graph_ctx))
+            else:
+                await query.message.reply_text("✓ Verarbeitet (keine neuen Wiki-Seiten).")
+        except Exception as exc:
+            logger.error("Retry error: %s", exc, exc_info=True)
+            await query.message.reply_text(f"🔁 Nochmal gescheitert: {str(exc)[:200]}")
+        finally:
+            context.user_data["retry_in_progress"] = False
+
+    elif query.data == "error_details":
+        err = context.user_data.get("last_error", "(kein Detail gespeichert)")
+        await query.message.reply_text(f"📋 Fehlerdetail:\n{err[:200]}")
+
+    # "error_dismiss": query.answer() bereits aufgerufen, keine weitere Aktion
+
+
+# ---------------------------------------------------------------------------
 # Core helper
 # ---------------------------------------------------------------------------
 
-async def _process_and_reply(update: Update, content, user_hint: str = "") -> None:
+async def _process_and_reply(update: Update, context, content, user_hint: str = "") -> None:
     """Extract → save raw event → run workflow → reply with result."""
     try:
         extracted = _extractor.extract(content, user_hint=user_hint)
         extracted.save_event(WIKI_ROOT)
         raw_event = extracted.to_raw_event(WIKI_ROOT)
+        context.user_data["last_raw_event"] = raw_event
 
         await update.message.reply_text("⏳ Verarbeite...")
 
         result = await asyncio.to_thread(run_ingest, raw_event)
 
-        verdict = result.get("supervisor_verdict", "accept")
-        writes  = result.get("wiki_writes", [])
-        msgs    = result.get("telegram_messages", [])
+        verdict   = result.get("supervisor_verdict", "accept")
+        writes    = result.get("wiki_writes", [])
+        msgs      = result.get("telegram_messages", [])
+        graph_ctx = result.get("graph_context", [])
 
         if verdict == "reject":
             await update.message.reply_text("❌ Nicht verarbeitet — Supervisor hat abgelehnt.")
         elif writes:
-            names = ", ".join(w["path"].split("/")[-1] for w in writes)
-            await update.message.reply_text(f"✓ Gespeichert: {names}")
+            await update.message.reply_text(_format_write_confirmation(writes, graph_ctx))
         else:
             await update.message.reply_text("✓ Verarbeitet (keine neuen Wiki-Seiten).")
 
@@ -130,7 +226,7 @@ async def _process_and_reply(update: Update, content, user_hint: str = "") -> No
 
     except Exception as exc:
         logger.error("Processing error: %s", exc, exc_info=True)
-        await update.message.reply_text(f"⚠️ Fehler: {exc}")
+        await _reply_error_keyboard(update, context, exc)
 
 
 async def _download_file(context, file_id: str, dest: Path) -> None:
@@ -155,7 +251,7 @@ async def handle_text(update: Update, context) -> None:
         text = parts[1] if len(parts) > 1 else ""
     if not text.strip():
         return
-    await _process_and_reply(update, text, user_hint=user_hint)
+    await _process_and_reply(update, context, text, user_hint=user_hint)
 
 
 @_require_allowed_user
@@ -163,7 +259,7 @@ async def handle_voice(update: Update, context) -> None:
     voice = update.message.voice
     dest = WIKI_ROOT / "raw" / "assets" / f"{voice.file_unique_id}.ogg"
     await _download_file(context, voice.file_id, dest)
-    await _process_and_reply(update, dest, user_hint=update.message.caption or "")
+    await _process_and_reply(update, context, dest, user_hint=update.message.caption or "")
 
 
 @_require_allowed_user
@@ -171,7 +267,7 @@ async def handle_photo(update: Update, context) -> None:
     photo = update.message.photo[-1]   # largest resolution
     dest = WIKI_ROOT / "raw" / "assets" / f"{photo.file_unique_id}.jpg"
     await _download_file(context, photo.file_id, dest)
-    await _process_and_reply(update, dest, user_hint=update.message.caption or "")
+    await _process_and_reply(update, context, dest, user_hint=update.message.caption or "")
 
 
 @_require_allowed_user
@@ -180,7 +276,7 @@ async def handle_document(update: Update, context) -> None:
     name = doc.file_name or f"{doc.file_unique_id}.bin"
     dest = WIKI_ROOT / "raw" / "sources" / name
     await _download_file(context, doc.file_id, dest)
-    await _process_and_reply(update, dest, user_hint=update.message.caption or "")
+    await _process_and_reply(update, context, dest, user_hint=update.message.caption or "")
 
 
 @_require_allowed_user
@@ -188,7 +284,7 @@ async def handle_video(update: Update, context) -> None:
     video = update.message.video or update.message.video_note
     dest  = WIKI_ROOT / "raw" / "assets" / f"{video.file_unique_id}.mp4"
     await _download_file(context, video.file_id, dest)
-    await _process_and_reply(update, dest, user_hint=update.message.caption or "")
+    await _process_and_reply(update, context, dest, user_hint=update.message.caption or "")
 
 
 # ---------------------------------------------------------------------------
@@ -260,7 +356,7 @@ async def _global_error_handler(update: object, context) -> None:
     logger.error("uncaught handler error: %s", context.error, exc_info=context.error)
     if isinstance(update, Update) and update.message is not None:
         try:
-            await update.message.reply_text("⚠️ Systemfehler. Log geprüft.")
+            await _reply_error_keyboard(update, context, context.error)
         except Exception:
             pass
 
@@ -285,6 +381,7 @@ def main() -> None:
     )
 
     app.add_handler(bootstrap_handler)
+    app.add_handler(CallbackQueryHandler(handle_error_callback, pattern="^(retry|error_details|error_dismiss)$"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
     app.add_handler(MessageHandler(filters.VOICE,                   handle_voice))
     app.add_handler(MessageHandler(filters.PHOTO,                   handle_photo))

@@ -28,6 +28,17 @@ _CLAUDE_HAIKU  = "claude-haiku-4-5-20251001"
 _CLAUDE_SONNET = "claude-sonnet-4-6"
 _DEFAULT_SYSTEM = "You are a precise assistant. Answer exactly as instructed."
 
+# Pricing per 1M tokens (USD), Stand 2026-04
+_COST_PER_M: dict[str, dict[str, float]] = {
+    _CLAUDE_HAIKU:  {"input": 0.80,  "output": 4.00},
+    _CLAUDE_SONNET: {"input": 3.00,  "output": 15.00},
+}
+
+# Session-level accumulator (reset on process restart)
+_session_cost_usd: float = 0.0
+_session_input_tokens: int = 0
+_session_output_tokens: int = 0
+
 
 class BaseAgent(ABC):
     """Abstract base class for all Knowledge-OS agents.
@@ -80,12 +91,31 @@ class BaseAgent(ABC):
     # ------------------------------------------------------------------
 
     def _call_claude(self, model: str, prompt: str, system: str, max_tokens: int) -> str:
+        global _session_cost_usd, _session_input_tokens, _session_output_tokens
+
         response = self.client.messages.create(
             model=model,
             max_tokens=max_tokens,
             system=system or _DEFAULT_SYSTEM,
             messages=[{"role": "user", "content": prompt}],
         )
+
+        usage = response.usage
+        in_tok  = usage.input_tokens
+        out_tok = usage.output_tokens
+        prices  = _COST_PER_M.get(model, {"input": 0.0, "output": 0.0})
+        call_cost = (in_tok * prices["input"] + out_tok * prices["output"]) / 1_000_000
+
+        _session_input_tokens  += in_tok
+        _session_output_tokens += out_tok
+        _session_cost_usd      += call_cost
+
+        logger.info(
+            "Claude %s | in=%d out=%d | call=$%.5f | session=$%.4f",
+            model.split("-")[1],  # "haiku" oder "sonnet"
+            in_tok, out_tok, call_cost, _session_cost_usd,
+        )
+
         return response.content[0].text
 
     def _call_ollama(self, prompt: str, system: str) -> str:

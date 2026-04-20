@@ -7,11 +7,12 @@ Verbindet alle Nodes nach ARCHITECTURE.md §5.1:
 
 from __future__ import annotations
 
+import operator
 import os
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import TypedDict
+from typing import Annotated, TypedDict
 
 import anthropic
 from dotenv import load_dotenv
@@ -34,6 +35,10 @@ WIKI_ROOT = Path(__file__).parent
 # State
 # ---------------------------------------------------------------------------
 
+def _merge_dicts(a: dict, b: dict) -> dict:
+    return {**a, **b}
+
+
 class SupervisorState(TypedDict):
     raw_event: dict
     user_profile: dict
@@ -41,11 +46,11 @@ class SupervisorState(TypedDict):
     classified_intent: str
     graph_context: list[WikiPage]
     assigned_agents: list[str]
-    agent_outputs: dict
+    agent_outputs: Annotated[dict, _merge_dicts]
     supervisor_verdict: str
     review_notes: str
-    wiki_writes: list[WikiWrite]
-    telegram_messages: list[str]
+    wiki_writes: Annotated[list[WikiWrite], operator.add]
+    telegram_messages: Annotated[list[str], operator.add]
 
 
 # ---------------------------------------------------------------------------
@@ -204,16 +209,16 @@ def build_workflow(wiki_root: Path = WIKI_ROOT):
     diary      = DiaryAgent(wiki_root=wiki_root, anthropic_client=client)
     language   = LanguageAgent(wiki_root=wiki_root, anthropic_client=client)
 
-    def write_node(state: SupervisorState) -> SupervisorState:
-        if state.get("supervisor_verdict") == "reject":
-            return state
-        writes = state.get("wiki_writes", [])
-        if writes:
-            execute_writes(writes, wiki_root=wiki_root)
-        return state
+    def write_node(state: SupervisorState) -> dict:
+        if state.get("supervisor_verdict") != "reject":
+            writes = state.get("wiki_writes", [])
+            if writes:
+                execute_writes(writes, wiki_root=wiki_root)
+        return {}
 
-    def index_node(state: SupervisorState) -> SupervisorState:
-        return _update_index(state, wiki_root=wiki_root)
+    def index_node(state: SupervisorState) -> dict:
+        _update_index(state, wiki_root=wiki_root)
+        return {}
 
     wf = StateGraph(SupervisorState)
 

@@ -170,10 +170,9 @@ class LanguageAgent(BaseAgent):
         )
         result = _build_workflow(self).invoke(lang_state)
         return {
-            **state,
-            "agent_outputs": {**state.get("agent_outputs", {}), "language": result},
-            "wiki_writes": state.get("wiki_writes", []) + result["wiki_writes"],
-            "telegram_messages": state.get("telegram_messages", []) + result["telegram_messages"],
+            "agent_outputs":     {"language": result},
+            "wiki_writes":       result["wiki_writes"],
+            "telegram_messages": result["telegram_messages"],
         }
 
     # -----------------------------------------------------------------------

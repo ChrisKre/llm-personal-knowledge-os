@@ -82,6 +82,35 @@ Was fehlt: Ton-Coaching auf Basis der echten Stimme.
 
 ---
 
+## 6. Kostenmessung — API-Verbrauch (Stand Session 017)
+
+`_call_claude()` in `agents/base_agent.py` loggt Token-Verbrauch und Kosten nach jedem LLM-Call.
+
+### Preistabelle (USD, Stand 2026-04)
+
+| Modell | Input / 1M | Output / 1M | Rolle |
+|---|---|---|---|
+| claude-haiku-4-5 | $0.80 | $4.00 | Classify, Detect, Review |
+| claude-sonnet-4-6 | $3.00 | $15.00 | Vocab-Erstellung, Story-Score, Elaboration |
+
+### Session-017-Messung (ca. 15 Test-Ingest-Calls)
+
+Aus Log-Ausgaben (repr. Auswahl):
+
+| Call | Modell | In | Out | Kosten |
+|---|---|---|---|---|
+| classify | haiku | ~120 | ~8 | $0.00013 |
+| detect_words | haiku | ~180 | ~15 | $0.00021 |
+| create_vocab | sonnet | ~500 | ~350 | $0.00675 |
+| supervisor review | haiku | ~300 | ~120 | $0.00072 |
+
+**Schätzung Normalnutzung:** 1 Text-Input mit `intent=both` ≈ $0.012–0.020 (1–2 Cent).
+Bei 30 Inputs/Monat: ca. **$0.40–0.60/Monat**. Sehr günstig.
+
+**Session-Kosten** werden im Log als `session=$X.XXXX` mitgeführt.
+
+---
+
 ## Was der Engineer vom Product Owner braucht
 
 1. **Entscheidung API-Key** — ohne Key kein MVP-1

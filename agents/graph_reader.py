@@ -86,7 +86,7 @@ def fetch_context(state: dict, wiki_root: Path = WIKI_ROOT) -> dict:
     user_hint = raw_event.get("user_hint", "")
 
     if not content:
-        return {**state, "graph_context": []}
+        return {"graph_context": []}
 
     keywords = _extract_keywords(content + " " + user_hint)
     intent = state.get("classified_intent", "")
@@ -109,7 +109,7 @@ def fetch_context(state: dict, wiki_root: Path = WIKI_ROOT) -> dict:
     pages_with_content = [p.load_content(wiki_root) for p in pages[:5]]
     pages_summary_only = pages[5:]
 
-    return {**state, "graph_context": pages_with_content + pages_summary_only}
+    return {"graph_context": pages_with_content + pages_summary_only}
 
 
 # ---------------------------------------------------------------------------

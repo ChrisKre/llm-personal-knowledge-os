@@ -108,14 +108,15 @@ def main() -> None:
     print(f"  Mode:  {'WRITE' if args.write else 'DRY-RUN'}")
 
     if not args.write:
-        # Monkey-patch execute_writes to no-op
+        # Monkey-patch execute_writes in both modules — main_workflow imports it by value
         import agents.graph_writer as _gw
-        _real_execute = _gw.execute_writes
+        import main_workflow as _mw
 
         def _dry_execute(writes, wiki_root=None):
             print(f"\n  [DRY-RUN] execute_writes() würde {len(writes)} Datei(en) schreiben — übersprungen.")
 
         _gw.execute_writes = _dry_execute
+        _mw.execute_writes = _dry_execute
 
     graph = build_workflow(WIKI_ROOT)
 

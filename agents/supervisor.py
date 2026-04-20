@@ -75,7 +75,7 @@ class Supervisor(BaseAgent):
         user_hint = raw_event.get("user_hint", "")
 
         if not content:
-            return {**state, "classified_intent": "lint"}
+            return {"classified_intent": "lint"}
 
         prompt = CLASSIFY_PROMPT.format(content=content[:500], user_hint=user_hint)
         intent = self._haiku(prompt).strip().lower()
@@ -84,7 +84,7 @@ class Supervisor(BaseAgent):
         if intent not in {"vocab", "personal_fact", "both", "query", "lint"}:
             intent = "both"  # safe fallback
 
-        return {**state, "classified_intent": intent}
+        return {"classified_intent": intent}
 
     @staticmethod
     def route(state: dict) -> str:
@@ -126,7 +126,7 @@ class Supervisor(BaseAgent):
                 verdict = line.split(":", 1)[1].strip().lower()
                 break
 
-        return {**state, "supervisor_verdict": verdict, "review_notes": review_text}
+        return {"supervisor_verdict": verdict, "review_notes": review_text}
 
     # -----------------------------------------------------------------------
     # Helpers
