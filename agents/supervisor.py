@@ -155,7 +155,8 @@ class Supervisor(BaseAgent):
         lines = []
         for agent, result in outputs.items():
             if isinstance(result, dict):
-                lines.append(f"{agent}: {list(result.keys())}")
+                parts = [f"{k}={str(v)[:60]}" for k, v in result.items()]
+                lines.append(f"{agent}: {{{', '.join(parts)}}}")
             else:
                 lines.append(f"{agent}: {str(result)[:100]}")
         return "\n".join(lines)

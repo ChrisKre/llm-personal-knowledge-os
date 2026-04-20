@@ -119,7 +119,7 @@ def _update_index(state: SupervisorState, wiki_root: Path = WIKI_ROOT) -> Superv
 
         if section not in additions:
             additions[section] = []
-        additions[section].append(entry)
+        additions[section].append((filename, entry))
 
     if not additions:
         return state
@@ -131,18 +131,21 @@ def _update_index(state: SupervisorState, wiki_root: Path = WIKI_ROOT) -> Superv
             rf"(## {re.escape(section)}) \((\d+)\)", re.MULTILINE
         )
         match = section_pattern.search(updated)
+        new_entries = [
+            entry for filename, entry in entries
+            if f"[[{filename}]]" not in updated
+        ]
+        if not new_entries:
+            continue
         if match:
             old_count = int(match.group(2))
-            new_count = old_count + len(entries)
-            # Replace header count
+            new_count = old_count + len(new_entries)
             updated = updated[:match.start()] + f"{match.group(1)} ({new_count})" + updated[match.end():]
-            # Insert entries right after the header line
             insert_at = updated.index(f"{match.group(1)} ({new_count})") + len(f"{match.group(1)} ({new_count})")
-            insert_block = "\n" + "\n".join(entries)
+            insert_block = "\n" + "\n".join(new_entries)
             updated = updated[:insert_at] + insert_block + updated[insert_at:]
         else:
-            # Section doesn't exist — append to end
-            updated += f"\n## {section} ({len(entries)})\n" + "\n".join(entries) + "\n"
+            updated += f"\n## {section} ({len(new_entries)})\n" + "\n".join(new_entries) + "\n"
 
     if updated != index_text:
         index_path.write_text(updated, encoding="utf-8")

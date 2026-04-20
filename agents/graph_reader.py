@@ -191,7 +191,13 @@ def _search_index_md(
         results.append((overlap, page))
 
     results.sort(key=lambda x: x[0], reverse=True)
-    return [page for _, page in results[:limit]]
+    seen: set[str] = set()
+    deduped = []
+    for _, page in results:
+        if page.path not in seen:
+            seen.add(page.path)
+            deduped.append(page)
+    return deduped[:limit]
 
 
 # ---------------------------------------------------------------------------
