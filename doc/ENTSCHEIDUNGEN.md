@@ -20,9 +20,10 @@
 | Story-Lab / Impuls | ENT-019, ENT-020, ENT-021, ENT-022, ENT-024 |
 | Services (GE-001) | ENT-012, ENT-026 |
 | MVP-Scope | ENT-025, ENT-030, ENT-032, ENT-038, ENT-044 |
-| Routing | ENT-029 |
+| Routing | ENT-029, ENT-047, ENT-048 |
 | Prozess & Dokumentation | ENT-023, ENT-034, ENT-035, ENT-036, ENT-037, ENT-046 |
-| UX-Radar / Telegram-UX | ENT-040, ENT-041, ENT-042, ENT-043, ENT-045 |
+| UX-Radar / Telegram-UX | ENT-040, ENT-041, ENT-042, ENT-043, ENT-045, ENT-049 |
+| Anki-Export (MVP-2-Zweitwelle) | ENT-050, ENT-051, ENT-052 |
 | Offene Entscheidungen | ENT-039 |
 
 ---
@@ -383,3 +384,90 @@
 - **Begründung:** ENT-040/041/042/043 haben bereits demonstriert, dass ENT-Einträge der richtige Ort sind — sie sind numeriert, stabil, chronologisch und themen-indiziert. Ein zweites Dokument wäre Doppelspur. Das PO-Rollenprofil verlangt explizit "ENT-* Stabilität" als nicht-verhandelbares Prinzip — alles andere würde das unterlaufen.
 - **Auswirkung:** Zukünftige UX-Radare (ux_002, ux_003, ...) werden genauso behandelt: Radar bleibt Radar, Beschlüsse wandern nach ENT-NNN mit expliziter Rück-Referenz auf die Radar-ID.
 - **Status:** final
+
+---
+
+## Session 020 — MVP-2 Voice-Trocken-Test + Vocab-Policy (2026-04-22)
+
+### [ENT-047] VocabEntry-Hint-Gate: Extraktion nur bei Hint oder deutsch-dominantem Input
+- **Entschieden:** 2026-04-22 (Session 020, PO-Beschluss nach Architekt-Eskalation [020a_eskalation_es-vocab.md](../sessions/020a_eskalation_es-vocab.md))
+- **Entscheidung:** LanguageAgent erzeugt VocabEntries + LanguageBridges nur wenn **eine** der beiden Bedingungen zutrifft:
+  1. `user_hint` enthält `#vocab` **oder** `vokabel` (case-insensitive Substring), **oder**
+  2. `raw_event.language_detected == "de"` (deutsch-dominanter Input — bestehendes Verhalten, extrahiert eingestreute Fremdwörter).
+
+  Bei reinen Fremdsprach-Inputs (`language_detected == "es"` o.ä.) ohne Hint: Intent wird im Supervisor von `both`/`vocab` auf `personal_fact` **downgedowngradet** — der Input landet als "hat Spanisch geübt"-Fact, nicht als Vokabel-Flut. Gate sitzt auf Routing-Ebene in [agents/supervisor.py](../agents/supervisor.py), nicht in `language_agent.py` — spart damit auch die parallele `both`-Send-Last.
+- **Begründung:** Dry-Run-Messung in Session 020 ([020a §Konkrete Daten](../sessions/020a_eskalation_es-vocab.md)) auf einer 9-Sekunden-ES-Voice ("Hoy aprendí una palabra nueva en español, madrugada..."): **15 VocabEntries + 6 Bridges** — überwiegend Funktionswörter (`la`, `en`, `del`, `una`, `hoy`). Kosten: ~$0.15/Voice → bei 1–3 ES-Voices/Tag = **$4.50–13.50/Monat** = 45–270% des $5–10-Monatsbudgets ([ENT-033](../doc/ENTSCHEIDUNGEN.md)). Zusätzlich: 22 Wiki-Dateien pro Nachricht, demoralisierende I1-Bestätigung ("22 Seiten erstellt — la, en, del…"), Anki-Kartenflut sobald MVP-2-Zweitwelle ([ENT-044](../doc/ENTSCHEIDUNGEN.md)) aktiv wird. Die Hint-Regel spiegelt den realen Lern-Workflow: spontan Sprache üben ≠ Vokabel festhalten. Verworfene Alternativen: Stopword-Filter + Hard-Cap (DE/EN/ES-Listen-Wartung, arbiträrer Cap); neuer `language_practice`-Intent (zu viel Chirurgie ohne Nutzungsdaten — kann später nachgeholt werden); Bug akzeptieren (Budget- und Vertrauensrisiko zu hoch).
+- **Auswirkung:** Architekt setzt um in Session 021: Gate in [agents/supervisor.py:71-103](../agents/supervisor.py#L71-L103) (~10 Zeilen), nutzt erstmals das bislang ungenutzte `language_detected`-Feld (räumt Befund #1 aus 020a mit ab). Hint-Matching: case-insensitive Substring, nichts weiter (`#vocab` / `vokabel`) — Erweiterungen erst nach Live-Evidenz. Keine zusätzlichen LLM-Calls, keine Schema-Änderung, kein neuer Agent. Bereits vermüllte Vokabeln in `wiki/language/vocab/` (15 ES-Funktionswörter vom 2026-04-21, siehe [log.md](../log.md)) werden in Session 021 aufgeräumt. Für MVP-2-Zweitwelle (Anki-Export) ist diese Policy Voraussetzung.
+- **Status:** beschlossen, Umsetzung ausstehend (Session 021)
+
+---
+
+## Session 021 — PO-Freigabe (2026-05-04)
+
+### [ENT-048] ENT-047-Auslegung: Hint-Gate nur bei gesetztem `language_detected`
+- **Entschieden:** 2026-05-04 (PO-Antwort auf Architekt-F1 in [Session 021](../sessions/021_2026-04-22.md))
+- **Entscheidung:** Das Hint-Gate aus [ENT-047](#ent-047-vocabentry-hint-gate-extraktion-nur-bei-hint-oder-deutsch-dominantem-input) feuert **ausschließlich**, wenn `raw_event.language_detected` gesetzt UND ungleich `"de"` ist. Fehlendes Feld (`None`/leer) führt **nicht** zum Downgrade — der Text-Pfad bleibt unverändert.
+- **Begründung:** `language_detected` wird heute nur vom Whisper-Pfad ([ENT-044](#ent-044-mvp-2-erstes-feature-voice-ingest)) gesetzt; Text-Inputs haben das Feld leer. Eine strenge Lesart von ENT-047 würde alle DE-Text-Mixes downgraden — klarer Regressionsfall (Bsp.: Nutzer tippt "Heute Wort: ensimismado gelernt" → Vokabel würde unterdrückt). Der primäre Bug aus 020a ist die Voice-ES-Flut; die wird mit dieser Lesart vollständig gefangen. Restrisiko reines-ES-Tippen bleibt offen, aber praktisch selten und nicht das Eskalations-Triggerszenario.
+- **Auswirkung:** Architekt setzt das Gate exakt mit dieser Bedingung um (Downgrade nur bei `language_detected` gesetzt UND != "de" UND kein Hint). Wenn Live-Evidenz ein Muster für reines-ES-Tippen zeigt, kommt ein Folge-ENT mit `language_detected`-Setter im Text-Pfad (z.B. `langdetect` oder Sonnet-Klassifikation). Heute nicht.
+- **Status:** final
+
+### [ENT-049] Zweit-Oberflächen-Strategie: Telegram bleibt primär, CLI/Discord/E-Mail vorgemerkt für MVP-3
+- **Entschieden:** 2026-05-04 (PO-Antwort auf [UX-Radar 002](../sessions_ux/ux_002_neuer-blickwinkel.md), Feedback in [sessions_ux/feedback_001.md](../sessions_ux/feedback_001.md))
+- **Entscheidung:** Telegram bleibt einziger primärer Eingabe- und Ausgabe-Kanal in MVP-1/MVP-2 ([ENT-004](#ent-004-telegram-als-primärer-input-kanal) bestätigt). Drei Zweit-Oberflächen werden formal **vorgemerkt**, aber **nicht jetzt** gezogen:
+  1. **CLI-Companion** (`pks <text>`): Inbound-Desktop, ~1–2 Tage Aufwand, ruft `run_ingest` direkt. Frühestens MVP-3, Trigger = PO-Selbstbeobachtung im Live-Betrieb.
+  2. **Discord-Outbound:** reicher Render-Kanal für [ENT-045](#ent-045-proaktiver-kanal-grundsätzlich-freigegeben-opt-in)-Proaktivität (Wochen-Replay, Morgen-Kaffee, Cluster-Puls). Embeds + Reactions. Frühestens MVP-3, gekoppelt an ENT-045-Aktivierung.
+  3. **E-Mail-Outbound:** Archiv-Schicht für Monats-Digest, maximale Markdown-Portabilität. Frühestens MVP-3, gekoppelt an ENT-045-Aktivierung.
+- **Begründung:** [UX-Radar 002](../sessions_ux/ux_002_neuer-blickwinkel.md) belegt: Telegram-Voice-Ingest ist heute Kern-Use-Case ([ENT-044](#ent-044-mvp-2-erstes-feature-voice-ingest)) und wird von keinem Kandidaten besser bedient — Discord schwächt Voice-Ingest, Obsidian-Plugin zwingt Hintergrund-Daemon, Web-App sprengt Budget. Die drei vorgemerkten Adapter sind **strikt parallel** — kein Lock-in, kein Schema-Impact, kein Bruch des WikiWrite-Vertrags. Vormerkung verhindert, dass die Frage in 6 Monaten von vorne diskutiert werden muss. Verworfene/nicht-vorgemerkte Kandidaten (Web-App, Obsidian-Plugin, Raycast als eigener Pfad, VS-Code, Browser-Extension, Apple Shortcuts, Slack) bleiben im Radar mit dokumentiertem Verdict — kein Pin.
+- **Auswirkung:** UX ergänzt einen `📌 MVP-3-Vormerkung`-Anhang am Ende von [ux_002_neuer-blickwinkel.md](../sessions_ux/ux_002_neuer-blickwinkel.md) mit der Triade CLI/Discord/E-Mail. Kein Code-Impact, kein Architekt-Auftrag heute. Bei ENT-045-Implementierung ist Discord-Outbound der Default-Render-Kandidat fürs Wochen-Replay. CLI-Companion läuft unabhängig — wird aktiviert, sobald Desktop-Ingest spürbares Schmerzbild zeigt.
+- **Status:** final (Strategie-Vormerkung), Umsetzung gekoppelt an ENT-045 bzw. PO-Trigger
+
+---
+
+## Session 022 — Anki-Export-Kickoff (2026-05-07)
+> MVP-2-Zweitwelle. PO-Beschlüsse zur Anki-Export-Architektur. Voraussetzung: [ENT-047](#ent-047-vocabentry-hint-gate-extraktion-nur-bei-hint-oder-deutsch-dominantem-input)/[ENT-048](#ent-048-ent-047-auslegung-hint-gate-nur-bei-gesetztem-language_detected) live (Wiki ist sauber). Keine Code-Lieferung in S022 — Architekt setzt in S023 um.
+
+### [ENT-050] Anki-Export: Scope, Quell-Selektion, Trigger, Format
+- **Entschieden:** 2026-05-07 (Session 022, PO-Beschluss — MVP-2-Zweitwelle-Kickoff)
+- **Entscheidung:** Anki-Export ist ein **on-demand-Output-Pfad**, kein automatischer Hook am Wiki-Write. Konkrete Festlegungen:
+  1. **Quell-Selektion:** Eine Anki-Karte pro `VocabEntry` mit `status: elaborated`. `status: raw` wird übersprungen (unfertig). `status: practiced` wird ebenfalls exportiert (sobald SRS-Lebenszyklus eingeführt ist — heute existiert noch keiner).
+  2. **Bridges werden NICHT exportiert** — siehe [ENT-051](#ent-051-anki-card-schema-front-back-tags) für Begründung.
+  3. **Kein PersonalFact-Verlinkungs-Filter** — alle elaborierten VocabEntries fliegen mit. Manuelle Markierung via Hint ist nicht nötig: das Hint-Gate aus [ENT-047](#ent-047-vocabentry-hint-gate-extraktion-nur-bei-hint-oder-deutsch-dominantem-input) sorgt bereits dafür, dass nur intentional erfasste Vokabeln in `wiki/language/vocab/` landen.
+  4. **Trigger:** CLI on-demand. Vorschlag (Architekt mag den finalen Pfad wählen): `python scripts/export_anki.py [--out PATH] [--since YYYY-MM-DD]`. Kein Hook am `graph_writer`, kein Scheduler. Passt zu [ENT-049](#ent-049-zweit-oberflächen-strategie-telegram-bleibt-primär-cli-discord-e-mail-vorgemerkt-für-mvp-3): Anki-Export ist kein Input-Kanal, sondern ein Output-Pfad — CLI ist legitim, auch wenn ENT-049 CLI-Inbound für MVP-3 markiert.
+  5. **Format:** `.apkg`-Paket via [genanki](https://github.com/kerrickstaley/genanki). Begründet: Single-Datei-Import-Erfahrung in Anki, native GUID-Unterstützung (Voraussetzung für [ENT-052](#ent-052-anki-card-identität-und-re-export-stabilität)), Python-nativ, kein Server. CSV-Alternative wäre primitiver, aber ohne stabile GUIDs — Re-Export-Pfad würde brechen.
+  6. **Deck-Struktur:** Ein Deck `PKS::Sprachen::Spanisch::Vokabeln`. Mehrsprachigkeit ist heute nicht nötig (nur ES) — wenn EN/andere Sprachen dazukommen, kommt eine Erweiterungs-ENT.
+- **Begründung:** Single-User-System, Wiki ist Source-of-Truth, Anki ist Lern-Adapter. On-demand-Trigger erlaubt dem Nutzer, Export-Zeitpunkte selbst zu kontrollieren (z.B. wöchentlich). Kein automatischer Hook = keine versehentliche SRS-State-Verwirrung durch Halb-fertige `raw`-Karten. `status: elaborated` als Filter ist die Qualitätsschwelle: Eselsbrücke + Beispielsätze sind das, was eine Karte lernwert macht — `raw` hätte beides nicht.
+- **Auswirkung:** Architekt setzt in Session 023 um. Aufwand: ~1 Tag Skript + Tests. Neue Dependency: `genanki` (in `requirements.txt` aufnehmen). **Kein Schema-Impact** — der `anki_id`-Slot existiert bereits im VocabEntry-Frontmatter ([ENT-005](#ent-005-schema-v03-entitäts-ontologie)) und wird in [ENT-052](#ent-052-anki-card-identität-und-re-export-stabilität) befüllt. **Kein LLM-Call**, **kein Budget-Impact** — reines Markdown-Parsen + Datei-Generierung.
+- **Status:** beschlossen, Umsetzung ausstehend (Session 023)
+
+---
+
+### [ENT-051] Anki-Card-Schema: Front, Back, Tags
+- **Entschieden:** 2026-05-07 (Session 022, PO-Beschluss)
+- **Entscheidung:** Card-Felder werden aus dem `VocabEntry`-Markdown deterministisch gerendert:
+  - **Front:** ES-Wort (z.B. `madrugada`). **Genus-Präfix** (`la`/`el`) wenn aus `## Grammatik > Genus` parsbar (z.B. `la madrugada`, `el duende`). Wenn nicht parsbar: Wort allein. **Keine Difficulty auf Front** — gehört auf Tag.
+  - **Back:**
+    1. DE-Übersetzung (erster Eintrag aus `## Übersetzungen > **DE:**`).
+    2. **Erster** Beispielsatz aus `## Beispielsätze` (kontextueller Lernanker, fett gehoben).
+    3. Eselsbrücke aus `## Eselsbrücke` (volle Übernahme — sie ist der individuell wertvollste Teil und meist 2–4 Zeilen lang).
+  - **Tags:**
+    - 1:1 aus dem Frontmatter-`tags`-Array.
+    - Plus `language::es` (für Filter in Anki).
+    - Plus CEFR-Niveau (`difficulty::B1`, `difficulty::C1` etc.) aus dem Frontmatter-Feld `difficulty`. **CEFR ersetzt einen `story_score`-Tag** — VocabEntries haben per [ENT-008](#ent-008-story_score-vierdimensionales-scoring-modell) keinen `story_score` (das ist PersonalFact-only).
+- **Bridges nicht in Karte:** Eine `LanguageBridge` ist kontrastives Wiki-Wissen (z.B. „flamenco/Flamenco ist ein Cognate") — sie hat keinen sinnvollen Front/Back-Schnitt für Karteikarten. Wer mehr Kontext zu einem Wort will, klickt vom Anki-Back den Obsidian-Link zur VocabEntry-Datei (siehe ENT-052: optionaler Obsidian-Backlink im Back-Feld). Brücken-Export wäre ein nachgeschobenes Feature, das den Lerner nicht durch SRS lernt, sondern Kontext-Refresh ist — nicht Scope MVP-2.
+- **Begründung:** Karteikarten sollen sehr fokussiert sein — *eine* Bedeutung vorne, *ein* Beispiel + Eselsbrücke hinten. Mehrere Beispielsätze auf der Karte verwässern die Recall-Präzision; sie bleiben in Obsidian erreichbar. Die Eselsbrücke ist handgeschmiedet pro Wort (LLM-elaboriert) und damit der individuellste Lernhebel — sie gehört unbedingt auf die Karte. CEFR-Tag erlaubt dem Nutzer in Anki, gezielt B1-Karten oder C1-Karten zu üben (Niveau-Filter ist in Anki ein häufiger Workflow).
+- **Auswirkung:** Architekt entscheidet, ob Genus-Parsing aus Markdown-Body machbar/robust ist — wenn fragil, ist Front = Wort allein akzeptabel (kein Eskalations-Trigger). Tags werden 1:1 ausgegeben (Anki erlaubt Multi-Word-Tags mit Unterstrich, also `Spanisch-Kultur` → `Spanisch-Kultur`). Wenn ein Frontmatter-Feld fehlt (z.B. `difficulty: null` in einer alten Datei), wird der entsprechende Tag schlicht weggelassen — kein Fehler, kein Default-Fallback.
+- **Status:** beschlossen, Umsetzung ausstehend (Session 023)
+
+---
+
+### [ENT-052] Anki-Card-Identität und Re-Export-Stabilität
+- **Entschieden:** 2026-05-07 (Session 022, PO-Beschluss)
+- **Entscheidung:** Stabile Karten-GUIDs via `anki_id`-Frontmatter-Slot — der existiert bereits in [ENT-005](#ent-005-schema-v03-entitäts-ontologie):
+  1. **Erster Export einer Karte:** Skript generiert eine deterministische GUID aus dem Wiki-Slug: `sha1("pks-vocab-" + slug).hexdigest()[:16]` (z.B. für `v_es_madrugada` → fester 16-Zeichen-String). Wert wird in das `anki_id`-Frontmatter-Feld der `.md`-Datei zurückgeschrieben. Genanki nutzt diesen Wert als `Note.guid`.
+  2. **Re-Export einer bereits exportierten Karte:** `anki_id` ist bereits gesetzt → Skript liest und wiederverwendet ihn. Anki erkennt die Karte am GUID und **überschreibt Front/Back/Tags**. **SRS-State (Intervall, Ease, Lapses) bleibt vollständig erhalten** — das ist die zentrale Eigenschaft, die genanki über `Note.guid` garantiert.
+  3. **Wiki-Datei wird umbenannt** (z.B. Slug-Korrektur): `anki_id` bleibt im Frontmatter erhalten → der neue Slug nutzt den alten anki_id-Wert → Anki-Karte bleibt dieselbe. **Resilienz gegen Slug-Änderungen.**
+  4. **Wiki-Datei wird gelöscht:** Skript macht in MVP-2 **keine** Aktion gegen Anki (kein Auto-Delete). Die zugehörige Anki-Karte bleibt — der Nutzer löscht manuell oder ignoriert sie. Ein optionaler `--prune`-Modus, der verwaiste Anki-Karten markiert/löscht, ist [CHANCEN]-Kandidat für MVP-3, kein Scope heute.
+  5. **Eselsbrücke wird im Wiki überarbeitet:** Re-Export aktualisiert das Back-Feld in Anki, GUID bleibt → SRS-Verlauf intakt. Genau das gewünschte Verhalten.
+- **Begründung:** SRS-State-Verlust ist der einzige echte Anti-Pattern-Fall im Anki-Workflow — alles andere ist reparabel. Eine deterministische GUID aus dem Slug + Persistenz im Frontmatter ist der einzige Weg, der gegen *alle* drei Veränderungs-Achsen (Inhalt, Slug, Re-Export-Reihenfolge) stabil bleibt. Genanki unterstützt das nativ via `Note.guid` ohne Workaround. Alternative (random UUIDs ohne Frontmatter-Persistenz) würde bei jedem Re-Export neue Karten erzeugen — Duplikate, SRS-Verlust. Klares NO-GO.
+- **Auswirkung:** Skript schreibt in das Wiki-Frontmatter zurück (erster und einziger schreibender Output-Pfad bisher außerhalb des Agent-Flows). Architekt entscheidet, ob das mit der bestehenden Frontmatter-Schreibe-Funktion in [graph_writer.py](../graph_writer.py) wiederverwendet werden kann oder ein dedizierter `frontmatter_patch`-Helper sinnvoll ist. **Kein Konflikt mit Draft→Master-Workflow ([ENT-007](#ent-007-draft--master-git-workflow-für-llm-writes))** — die `anki_id`-Schreibung ist deterministisch, nicht-LLM, nicht-halluzinationsanfällig; ein direkter Master-Write ist gerechtfertigt. (Wenn Architekt anders sieht: eskalieren.) Optional empfohlen: Im Anki-Back-Feld einen Obsidian-Backlink (`obsidian://open?vault=repos&file=wiki/language/vocab/v_es_madrugada`) anhängen, damit der Lerner aus Anki direkt zur Wiki-Quelle springen kann — kontextueller Mehrwert ohne Zusatzkomplexität.
+- **Status:** beschlossen, Umsetzung ausstehend (Session 023)
