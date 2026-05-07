@@ -21,3 +21,6 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Anki-Export-Artefakte (generiert, kein Source) — Session 023
+out/

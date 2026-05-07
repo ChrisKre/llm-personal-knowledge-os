@@ -32,5 +32,8 @@ langdetect>=1.0.9
 # --- File Watching (Style References auto-ingest) ---
 watchdog>=4.0.0
 
+# --- Anki Export (MVP-2-Zweitwelle, Session 023) ---
+genanki>=0.13.0
+
 # --- Environment / Config ---
 python-dotenv>=1.0.0
