@@ -84,6 +84,16 @@ class Supervisor(BaseAgent):
         if intent not in {"vocab", "personal_fact", "both", "query", "lint"}:
             intent = "both"  # safe fallback
 
+        # ENT-047 / ENT-048: Hint-Gate. Non-DE voice without explicit vocab-hint
+        # downgrades to personal_fact (avoids ES-Voice → 15 VocabEntry-Flut).
+        # Gate feuert nur wenn language_detected gesetzt UND != "de" (ENT-048).
+        if intent in {"vocab", "both"}:
+            lang = raw_event.get("language_detected")
+            hint_lower = (user_hint or "").lower()
+            has_vocab_hint = "#vocab" in hint_lower or "vokabel" in hint_lower
+            if lang and lang != "de" and not has_vocab_hint:
+                intent = "personal_fact"
+
         return {"classified_intent": intent}
 
     @staticmethod

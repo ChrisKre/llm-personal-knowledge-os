@@ -80,6 +80,8 @@ def _run_pipeline(extracted, write: bool) -> dict:
             print(f"      [DRY-RUN] execute_writes() wuerde {len(writes)} Datei(en) schreiben.")
         _gw.execute_writes = _dry
         _mw.execute_writes = _dry
+        # Verhindert Ghost-Eintraege im index.md (Dry-Run-Befund Session 021).
+        _mw._update_index = lambda s, wiki_root=None: None
 
     from main_workflow import run_ingest
     raw_event = extracted.to_raw_event(REPO_ROOT)

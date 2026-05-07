@@ -390,6 +390,13 @@ def main() -> None:
 
     app.add_error_handler(_global_error_handler)
 
+    # Whisper-Warm-up: ~460 MB Download nur einmal beim allerersten Start;
+    # verhindert Sekunden-stille bei der ersten User-Voice (Session 020: 703s).
+    from agents.extractors.audio_extractor import _get_model
+    logger.info("Lade Whisper-Modell (einmalig beim Start)...")
+    _get_model()
+    logger.info("Whisper-Modell bereit.")
+
     logger.info("Bot gestartet — polling...")
     app.run_polling(drop_pending_updates=True)
 
