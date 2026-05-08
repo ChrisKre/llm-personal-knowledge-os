@@ -37,3 +37,7 @@ genanki>=0.13.0
 
 # --- Environment / Config ---
 python-dotenv>=1.0.0
+
+# --- Tests (MVP-2-Zweitwelle, Workshop S025 BL-02) ---
+pytest>=7.0
+pytest-snapshot>=0.9
