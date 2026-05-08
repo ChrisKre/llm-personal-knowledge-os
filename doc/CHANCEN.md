@@ -95,3 +95,33 @@ Das Konzept ist open-source-freundlich. Andere Nutzer könnten eigene Graphen ba
 2. **Open Source oder proprietär?** Der Karpathy-Ansatz lebt vom Dateisystem — Code-Sharing ohne Daten-Sharing ist trivial.
 3. **iOS/Android-Native-App statt Telegram?** Telegram ist pragmatisch, aber nicht marken-eigenständig. Zu früh für die Frage, aber wert im Radar zu halten.
 4. **Wie groß darf der Graph werden, bevor die Markdown-Navigation bricht?** SQLite ab 30 Seiten (ENT-027) ist Phase 1; ab 1000+? 10.000+? Noch nicht getestet.
+
+---
+
+## 7. Workshop-Radar-Ideen (Session 025, 2026-05-08)
+
+> Drei Ideen aus dem Knowledge-Graph-Tiefencheck-Workshop, die bewusst **nicht** in die MVP-2-Zweitwelle gezogen wurden. Detail-Begründung in [workshop/05_po_synthesis.md §3 Anti-Decisions](../workshop/05_po_synthesis.md). Klassifikation als Radar (kein Backlog-Item) heißt: relevant, nicht jetzt.
+
+### 7.1 LazyGraphRAG-Concept-Cluster (vom Workshop als C7 erfasst)
+- **Was:** Wenn der Korpus auf ≥50 PersonalFacts wächst (heute: 10), NLP-basierter Co-Occurrence-Graph (Tag-/Slug-Token-Pairs) + Community-Detection (z.B. Louvain) erzeugt Concept-Seiten ([ENT-010](ENTSCHEIDUNGEN.md#ent-010-korrelations-engine)) bottom-up. Pro Community-Erkennung **einmalig** Sonnet-Synthese (~$0,02/Concept × geschätzt 5/Quartal = ~$0,10/Quartal). **Karpathy-konform** weil NLP-statisch — kein Vektor-Store, keine Embeddings.
+- **State-of-Art-Bezug:** Microsoft LazyGraphRAG (Microsoft Research Blog 2024-11), 0,1 % der Indexierungs-Kosten von Vollversion-GraphRAG, NLP-statische Indexierung. Detail in [workshop/01_ai_research.md §B1](../workshop/01_ai_research.md).
+- **Aufwand:** ~1–2 Tage (NLP-Library-Integration, Cluster-Detektion, Concept-Synthese-Prompt).
+- **Trigger:** **Korpus-Wachstum auf ≥50 PersonalFacts.** Heute 10. Bei aktueller Aktivität (~3–5 PFs/Woche) erreicht Mitte–Ende 2026.
+- **Risiko/Trade-off:** Cluster mit zu wenig Inhalt erzeugen leere Concepts. Mitigation: Min-Cluster-Größe 3.
+- **Querverweise:** [Workshop §C7](../workshop/01_ai_research.md), [Workshop §B7 Architekt](../workshop/03_architect.md), [Workshop §B4 OK-Backlog QM](../workshop/04_qm.md).
+
+### 7.2 Discord-Outbound für Wochen-Replay (vom Workshop als UX-C2 erfasst)
+- **Was:** Sonntag 20:00 — Cron-getriggerter Job rendert Discord-Embed mit Wochen-Bilanz pro Lern-Domain (Spanisch, PersonalFacts, Style). Reicheres Render-Format als Telegram-Inline (mehrere Felder, Farb-Akzent, Markdown-Subset). Mockup in [workshop/02_ux.md §C2](../workshop/02_ux.md).
+- **State-of-Art-Bezug:** [ENT-045](ENTSCHEIDUNGEN.md#ent-045-proaktiver-kanal-grundsätzlich-freigegeben-opt-in) erlaubt Proaktivität opt-in mit 24h-TTL und Pausier-Kommando. [ENT-049](ENTSCHEIDUNGEN.md#ent-049-zweit-oberflächen-strategie-telegram-bleibt-primär-cli-discord-e-mail-vorgemerkt-für-mvp-3) markiert Discord als Outbound-Kandidat für MVP-3.
+- **Aufwand:** Discord-Bot-Setup ~1 Tag, Render-Layer für Embed ~2 Tage (`agents/render/discord.py` analog zu `agents/render/card.py`), Cron-Trigger + ENT-045-Policy-Implementierung ~1 Tag = **~4 Tage** Architekt-Aufwand.
+- **Trigger:** **ENT-045-Aktivierung** (proaktiver Kanal opt-in). MVP-3-Scope. Pre-Req: BL-04 (Index repariert), BL-05 (`RenderDict`-Vertrag etabliert).
+- **Risiko/Trade-off:** Doppel-Outbound-Telemetrie (Telegram-Echo + Discord) muss konsistent sein. ENT-045-Policy-Implementierung (24h-TTL, Pausier-Kommando) ist neue Infra.
+- **Querverweise:** [Workshop §C2 UX](../workshop/02_ux.md), [Workshop §B12 Architekt](../workshop/03_architect.md), [Workshop §B4 NICHT-MVP-2 QM](../workshop/04_qm.md).
+
+### 7.3 E2E-Pipeline-Tests für Bot-Handler (Workshop-Befund §D4 Architekt)
+- **Was:** End-to-End-Tests für die Bot-Pipeline (Voice + Text + künftig Bild/PDF). Heute kein E2E-Test-Pattern; Test-Skelett (BL-02 in Workshop-Backlog) liefert nur Unit-Test-Skelett. E2E würde Bot-Handler-Mock + Whisper-Mock + LLM-Mock + Wiki-Diff-Assertion kombinieren.
+- **State-of-Art-Bezug:** Standard-Pattern in agentischen Pipelines (LangChain/LangGraph-E2E-Test-Frameworks). Architekt-Befund [Workshop §D4](../workshop/03_architect.md): bei Multi-Modal (BL-08) kritisch.
+- **Aufwand:** ~1 Tag Pattern-Etablierung + pro neuem Pfad ~2–4h.
+- **Trigger:** **BL-08 (C6 Multi-Modal-Backfill) Live-Schaltung.** Davor sind Unit-Tests + Hint-Gate-Tests ausreichend. Sobald Bilder/PDFs durch die Pipeline fließen, ist E2E-Test der einzige Schutz vor stillen Regressions in der Bot-Handler-Verkettung.
+- **Risiko/Trade-off:** Mock-Aufwand kann groß werden. Mitigation: Fokus auf Smoke-E2E (kommt eine Wiki-Datei raus?) statt detaillierte Inhalts-Assertion.
+- **Querverweise:** [Workshop §D4 Architekt](../workshop/03_architect.md), [Workshop §B1 R4 QM](../workshop/04_qm.md).

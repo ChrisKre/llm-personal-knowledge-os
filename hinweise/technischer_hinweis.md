@@ -73,12 +73,61 @@ Was fehlt: Ton-Coaching auf Basis der echten Stimme.
 
 | Schuld | Auswirkung | Priorität |
 |---|---|---|
-| `LintAgent._apply_auto_fixes()` sind Stubs | Lint läuft, repariert aber nichts | MVP-2 |
-| AnkiConnect nicht implementiert | Vokabel-Export funktioniert nicht | MVP-2 |
+| `LintAgent._apply_auto_fixes()` sind Stubs | Lint läuft, repariert aber nichts | MVP-2-Zweitwelle (BL-07) |
 | Kein LLM-Retry bei Timeout/Fehler | Pipeline bricht bei Ollama-Timeout ab | MVP-1 |
-| graph_reader Phase 2 (SQLite) ungetestet | Risiko bei > 30 Seiten | MVP-1 |
+| graph_reader Phase 2 (SQLite) ungetestet | Risiko bei > 30 Seiten | MVP-2-Zweitwelle (BL-09) |
 | bot.py kein Error-Handling | Telegram-Bot crasht bei Fehlern | MVP-1 |
 | LangGraph Reducer für parallel routing | Möglicher Datenverlust bei "both"-Intent | MVP-1 |
+
+> **Gestrichen (Workshop S025, 2026-05-08):** "AnkiConnect nicht implementiert" — obsolet seit [ENT-050](../doc/ENTSCHEIDUNGEN.md#ent-050-anki-export-scope-quell-selektion-trigger-format) (genanki-Pfad gewählt, nicht AnkiConnect).
+
+---
+
+## 7. Vom Workshop S025 aufgedeckte Schulden (Stand 2026-05-08)
+
+> Quelle: [workshop/05_po_synthesis.md](../workshop/05_po_synthesis.md), [workshop/04_qm.md §Aktualisierungs-Vorschlag](../workshop/04_qm.md). Vom PO in S025-Phase 5 (Synthese) aufgenommen.
+
+### Neue Schulden (vom Workshop aufgedeckt)
+
+| Schuld | Auswirkung | Backlog-Bezug |
+|---|---|---|
+| **`graph_writer.py:55-65` Branch-Bug** — `git checkout main` + `git branch -D draft` an drei Stellen + zwei Doc-Strings. Branch heißt `master` ([ENT-039](../doc/ENTSCHEIDUNGEN.md#ent-039-branch-namen-konvention-master-vs-main)). | Heute schlafend, wird akut sobald `reject_draft()` aufgerufen wird (z.B. wenn Lint-Live geht, BL-07). | **BL-01**, MVP-2.5 Schritt 0 in S026 |
+| **`tests/`-Struktur fehlt komplett** — kein `pytest`-Setup, keine Fixtures, keine Snapshot-Tests. | Pflicht-Pre-Req für vier destruktive Workshop-Schritte (BL-03, BL-07, BL-08, BL-05). Ohne Test-Backstop ist die MVP-2-Zweitwelle ein Schreib-und-Hoffe-Projekt. | **BL-02**, MVP-2.5 Schritt 0b in S026 |
+| **Frontmatter-Schuld auf 7 elaborierten VocabEntries** — pyyaml-Verweigerung wegen `dedent()`-Bug in `language_agent.py:423-459`. Regex-Workaround in `export_anki.py:79-98` und potenziell weiteren Konsumenten verteilt. | Erbe-Risiko: jeder neue Render-Konsument (Discord, E-Mail, Lint, Story-Lab-Vocab) erbt den Workaround. Kosten skalieren mit Konsumenten-Zahl. | **BL-03** (C4 Migration), MVP-2.5 Schritt 1 in S026 |
+| **Index-Drift `index.md` ↔ Filesystem** — Index meldet 18 PFs, FS hat 10. Kein `index_updater`-Modul-Pfad existiert (Phantom in ARCHITECTURE.md §6.1). | Phase-1-Retrieval ist faktisch nur Slug-Token-Match; jede `graph_reader`-Suche liefert potenziell tote Treffer. | **BL-04** (C1 Index-Reparatur), MVP-2.5 Schritt 2 |
+| **`ARCHITECTURE.md §6.3` widerspricht Code + ENT-027** — Threshold-Wert `150` vs. `30`. | Doku-konsistent vor BL-09 (FTS5-Build). Doku-Schuld, nicht funktional. | **BL-11**, niedrige Priorität |
+| **`agents/graph_reader.py:3-4` Header-Kommentar widerspricht Z.20 derselben Datei** — Threshold `150` vs. `30` (QM-Bonus-Befund). | Interne Datei-Inkonsistenz, kein Funktions-Risiko. | **BL-11**, mit Threshold-Fix bündeln |
+| **`agents/index_updater.py` ist Phantom** — referenziert in ARCHITECTURE.md §6.1 als LangGraph-Node, existiert nicht im Repo. | Nicht funktional kritisch, weil C1 (BL-04) das mit `scripts/rebuild_index.py` ablöst. Doku-Update Pflicht. | **BL-11** + BL-04 deckt es ab |
+| **Drei `_split_frontmatter`-Implementierungen verteilt** — `export_anki.py:79-98` regex, `language_agent.py:423-459` f-string-dedent, geplanter `rebuild_index.py`-Pfad. | Wartbarkeits-Risiko: Bug-Fixes müssen drei Stellen treffen. | **BL-03 + BL-04** etabliert `agents/frontmatter.py`-Helper als Single-Source. |
+
+### Behobene Schulden (durch Workshop-Vorschläge, sobald implementiert)
+
+| Schuld | Wird behoben durch | Status |
+|---|---|---|
+| `LintAgent._apply_auto_fixes()` sind Stubs (alt-Eintrag oben) | BL-07 (C3 Lint-Auto-Fixes) | wartet auf BL-03 + BL-04 |
+| graph_reader Phase 2 (SQLite) ungetestet (alt-Eintrag oben) | BL-09 (C2 SQLite-FTS5-Build) | wartet auf BL-04 + BL-11 |
+| L1, L5, L7 aus [Workshop 01 §A3](../workshop/01_ai_research.md) — Lint-Stub, Konsolidierung, Backlink-Symmetrie | BL-07 | wartet auf BL-03 |
+| L2, L3 — Index-Drift + Slug-Summaries | BL-04 | wartet auf BL-03 |
+| L4 — Phase-2-FTS5 nie getestet | BL-09 | wartet auf BL-04 |
+| L6 — Frontmatter-Schuld auf 7 Vocab-Files | BL-03 | startet in S026 |
+
+### Nicht erledigte Schulden (bleiben Backlog, vom Workshop nicht berührt)
+
+- "kein LLM-Retry bei Timeout/Fehler" — MVP-1-Schuld, bleibt offen.
+- "bot.py kein Error-Handling" — MVP-1-Schuld, bleibt offen.
+- "LangGraph Reducer für parallel routing" — MVP-1-Schuld, bleibt offen (`Annotated`-Reducer-Refactor).
+
+### Workshop-Output-Verweise (für Detail-Kontext)
+
+- Workshop-Charta: [workshop/README.md](../workshop/README.md)
+- Phase 1 (AI-Research): [workshop/01_ai_research.md](../workshop/01_ai_research.md)
+- Phase 2 (UX): [workshop/02_ux.md](../workshop/02_ux.md)
+- Phase 3 (Architekt): [workshop/03_architect.md](../workshop/03_architect.md)
+- Phase 4 (QM): [workshop/04_qm.md](../workshop/04_qm.md)
+- Phase 5 (PO-Synthese): [workshop/05_po_synthesis.md](../workshop/05_po_synthesis.md)
+- Backlog: [workshop/backlog.md](../workshop/backlog.md)
+- ENT-Updates aus S025: ENT-053, ENT-054, ENT-055, ENT-056 (revidiert ENT-007) in [doc/ENTSCHEIDUNGEN.md](../doc/ENTSCHEIDUNGEN.md)
+- CHANCEN-Updates aus S025: §7.1 LazyGraphRAG, §7.2 Discord-Replay, §7.3 E2E-Tests in [doc/CHANCEN.md](../doc/CHANCEN.md)
 
 ---
 

@@ -12,7 +12,7 @@
 | 2 | UX | 2026-05-08 | (1) Ein Notetype, vier Slot-Profile (A/B/C/D); Template-first, LLM-second; (2) Render-Layer als eigenes Modul `scripts/render_card.py` empfohlen + `RenderDict`-Adapter-Vertrag für künftige Discord/E-Mail-Konsumenten; (3) Mobile-Backlink-Bruch bestätigt — Klartext-Pfad als zweite Zeile Pflicht; C5a (Health-Tag) angenommen, C5b (zweiter Backlink) abgelehnt. | [02_ux.md](02_ux.md) | Architekt |
 | 3 | Architekt | 2026-05-08 | (1) Keine harten ARCH-VETOs — alle Workshop-Vorschläge Karpathy-konform; 6 Marker (3× ENT-NÖTIG, 3× ARCH-FRAGE). (2) Reihenfolge ist scharf: C4 (Frontmatter) → C1 (Index) → Render-Modul → C5a (Health-Tag) → C3 (Lint). (3) Vier Pre-Workshop-Inkonsistenzen aufgedeckt: `graph_writer.py`-Branch-Bug (`main` vs. `master`), `WIKI_PAGE_THRESHOLD` 30-vs-150, `index_updater`-Phantom-Modul, Draft-Branch dormant. | [03_architect.md](03_architect.md) | QM |
 | 4 | QM | 2026-05-08 | (1) Meilenstein-Urteil: **"Synthese mit Auflagen"** — Workshop-Output sachlich konsistent mit Karpathy/WikiWrite/Branch-master/Budget; vier P1-Befunde alle heilbar in 05. (2) Vier P1-Auflagen für PO: `graph_writer.py:55-65` Branch-Bug-Fix als Schritt 0 (R1), Frontmatter-Migration mit drei Auflagen (Backup-Branch + Idempotenz-Test + `anki_id`-Hash-Snapshot, R2/QK-8), Sensitivity-ENT für Bilder vor C6 (R3/QK-9), Test-Skelett als Pre-Implementierungs-Pflicht (R4/QK-14). (3) Sieben QK-Vorschläge (QK-8 bis QK-14) + drei ENT-NEU-Vorschläge + zwei ENT-Updates (ENT-007 Status, ENT-027 Doku-Korrektur); plus Bonus-Befund: [graph_reader.py:3-4](../agents/graph_reader.py#L3-L4) Header-Kommentar widerspricht Z.20 derselben Datei (R16). | [04_qm.md](04_qm.md) | PO |
-| 5 | PO-Synthese | _TBD_ | _TBD_ | [05_po_synthesis.md](05_po_synthesis.md) | (Ende) |
+| 5 | PO-Synthese | 2026-05-08 | (1) Workshop-Verdict: erfolgreich, "Synthese mit Auflagen" angenommen — alle vier QM-Auflagen erfüllt, vier neue ENTs (ENT-053/054/055/056), 13-Items-Backlog. (2) Anti-Decisions: Karpathy + WikiWrite + MVP-3-Stufung bleiben; C5b + C7-Cluster + Discord-Replay bleiben Radar/abgelehnt; AnkiConnect-Eintrag aus technischer_hinweis.md gestrichen. (3) Top-1-Implementierungs-Item für S026 ist BL-03 (C4 Frontmatter-Migration), Adressat Architekt; davor Schritt 0 (BL-01 Branch-Bug-Fix) + 0b (BL-02 Test-Skelett). | [05_po_synthesis.md](05_po_synthesis.md) | (Ende) |
 
 ---
 
@@ -112,13 +112,52 @@
 
 > Format: `[Backlog-ID] [angenommen/abgelehnt/verschoben] — [Begründung kurz, Detail in 05_po_synthesis.md §X]`
 
-_(noch leer)_
+**Vetos und Marker (M1–M6) — alle angenommen mit dokumentierter Begründung:**
+- `[M1: 01 §C4 ARCH-FRAGE Migration vs. Draft]` **angenommen** — Direct-Master-Write legitim (analog ENT-052), durch ENT-056 (Pause ENT-007) zusätzlich abgesichert. Detail in `05_po_synthesis.md §4 M1`.
+- `[M2: 01 §C5 ENT-NÖTIG Persistenz]` **angenommen → ENT-054** — `out/anki_export_log.json`. Detail in `05_po_synthesis.md §4 M2`.
+- `[M3: 01 §C6 ENT-NÖTIG Sensitivity]` **angenommen → ENT-053** — QM-verschärfte Variante (Default Quick-Save, Vision nur mit Hint). Detail in `05_po_synthesis.md §4 M3`.
+- `[M4: 02 §B5 ENT-NÖTIG IPA]` **angenommen → ENT-055** — Frontmatter-Slot, optional, sprachspezifisch. Detail in `05_po_synthesis.md §4 M4`.
+- `[M5: 02 §B5 ARCH-FRAGE Render-Modul]` **angenommen — `agents/render/`** (Architekt-Override gegen UX). Modul-Hygiene = Architekt-Autorität, kein ENT. Detail in `05_po_synthesis.md §4 M5`.
+- `[M6: 02 §C1 ARCH-FRAGE Bot-Token]` **angenommen — kein Konflikt** (Architekt-Verdict ratifiziert). Detail in `05_po_synthesis.md §4 M6`.
+
+**QK-Vorschläge (QK-8 bis QK-14) — alle angenommen:**
+- `[QK-8 Frontmatter-Migration mit drei Auflagen]` **angenommen** — BL-03 mit Backup-Branch + Idempotenz-Test + anki_id-Hash-Snapshot. Workshop-intern, kein eigener ENT.
+- `[QK-9 Sensitivity-ENT für Bilder]` **angenommen → ENT-053**.
+- `[QK-10 Persistenz `out/anki_export_log.json`]` **angenommen → ENT-054**.
+- `[QK-11 Render-Modul-Standort `agents/render/`]` **angenommen, kein ENT** — workshop-intern in BL-05.
+- `[QK-12 ARCHITECTURE.md Threshold-Korrektur]` **angenommen** — BL-11 Doku-Korrekturen. Kein neuer ENT, ENT-027 bleibt führend.
+- `[QK-13 ENT-007 formale Pause]` **angenommen → ENT-056** mit `revidiert: ENT-007`-Verweis.
+- `[QK-14 Test-Strategie]` **angenommen** — BL-02 Test-Skelett. Kein ENT, Engineering-Konvention.
+
+**Backlog-Items (BL-01 bis BL-13) — alle angenommen, einsortiert nach Reihenfolge:**
+- `[BL-01 graph_writer Branch-Bug]` P1, Schritt 0 in S026.
+- `[BL-02 Test-Skelett]` P1, Schritt 0b in S026.
+- `[BL-03 C4 Frontmatter-Migration]` P1, Schritt 1 in S026 — **Top-1-Item**.
+- `[BL-04 C1 Index-Reparatur + frontmatter.py-Helper]` P1, Schritt 2 (S027 vorgesehen).
+- `[BL-05 Render-Modul + RenderDict]` P2, Schritt 3.
+- `[BL-06 C5a Health-Tag + Telegram-Echo]` P2, Schritt 4.
+- `[BL-07 C3 Lint-Auto-Fixes]` P2, Schritt 5.
+- `[BL-08 C6 Multi-Modal-Backfill]` P2, Schritt 7 (Pre-Req: ENT-053 ✓).
+- `[BL-09 C2 SQLite-FTS5-Build]` P3, Schritt 6.
+- `[BL-10 C8 User-Profile Self-Refresh]` P3, Schritt 8 (optional).
+- `[BL-11 ARCHITECTURE.md Doku-Korrekturen]` P3, parallel zu BL-04 oder BL-09.
+- `[BL-12 scripts/migrations/-Pattern]` P3, mit BL-03 etabliert.
+- `[BL-13 graph_stats.py Wachstums-Telemetrie]` Radar.
+
+**Verschoben in CHANCEN.md:**
+- `[Workshop §C7 LazyGraphRAG-Concept-Cluster]` **Radar** — Trigger ≥50 PFs.
+- `[Workshop UX-§C2 Discord-Wochen-Replay]` **Radar** — Trigger ENT-045-Aktivierung.
+- `[Workshop §D4 E2E-Pipeline-Tests]` **Radar** — Trigger BL-08 Live.
+
+**Abgelehnt:**
+- `[01 §C5b zweiter Backlink Anki→index.md]` **abgelehnt** — UX-Verdict §B6: Mobile-Bruch, Pixel-Verbrauch, kein Lerner-Mehrwert. Detail in `05_po_synthesis.md §3 Anti-Decisions Punkt 6`.
 
 ---
 
 ## Status
 
 - Ausgerufen: 2026-05-08
-- Aktuelle Phase: 4 abgeschlossen (QM, 2026-05-08) — Phase 5 (PO-Synthese) startbereit
-- Meilenstein-Urteil (QM): **Synthese mit Auflagen** — vier P1-Befunde alle heilbar in 05, fünf Pflicht-Auflagen.
-- Nächster Schritt: PO startet PO-Synthese-Session mit [prompts/05_po_synthesis_prompt.md](prompts/05_po_synthesis_prompt.md). PO liest [04_qm.md](04_qm.md) + [handovers/handover_04_qm_to_po.md](handovers/handover_04_qm_to_po.md) als erstes; arbeitet ENT-NEU-Liste, Anti-Decisions, Reihenfolge ab.
+- Aktuelle Phase: **5 abgeschlossen (PO-Synthese, 2026-05-08) — Workshop offiziell geschlossen.**
+- Meilenstein-Urteil (QM): **Synthese mit Auflagen** — vier P1-Befunde alle in der PO-Synthese geheilt, fünf Pflicht-Auflagen erfüllt.
+- PO-Verdict (Phase 5): vier neue ENTs (ENT-053/054/055/056), 13-Items-Backlog, 10 Anti-Decisions, drei CHANCEN-Einträge. Detail in [05_po_synthesis.md](05_po_synthesis.md).
+- Nächster Schritt: **Implementierungs-Session 026** ([sessions/026_2026-05-09.md](../sessions/026_2026-05-09.md)) — Architekt liefert BL-01 (graph_writer Branch-Bug), BL-02 (Test-Skelett), BL-03 (C4 Frontmatter-Migration). MVP-2-Zweitwelle startet.

@@ -87,11 +87,11 @@ workshop/
 | Phase | Datum | Status |
 |---|---|---|
 | 0 — Workshop ausgerufen (PO) | 2026-05-08 | ✓ |
-| 1 — AI-Research | TBD | offen |
-| 2 — UX | TBD | offen |
+| 1 — AI-Research | 2026-05-08 | ✓ |
+| 2 — UX | 2026-05-08 | ✓ |
 | 3 — Architekt | 2026-05-08 | ✓ |
 | 4 — QM | 2026-05-08 | ✓ |
-| 5 — PO-Synthese | TBD | offen |
+| 5 — PO-Synthese | 2026-05-08 | ✓ — Workshop offiziell geschlossen |
 
 ## Wie der Nutzer den Workshop fährt
 

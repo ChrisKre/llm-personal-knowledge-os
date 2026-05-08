@@ -24,6 +24,10 @@
 | Prozess & Dokumentation | ENT-023, ENT-034, ENT-035, ENT-036, ENT-037, ENT-046 |
 | UX-Radar / Telegram-UX | ENT-040, ENT-041, ENT-042, ENT-043, ENT-045, ENT-049 |
 | Anki-Export (MVP-2-Zweitwelle) | ENT-050, ENT-051, ENT-052 |
+| Multi-Modal / Sensitivity (Workshop S025) | ENT-053 |
+| Render-Layer / Persistenz (Workshop S025) | ENT-054 |
+| Schema-Erweiterungen (Workshop S025) | ENT-055 |
+| Workflow-Revisionen (Workshop S025) | ENT-056 (revidiert ENT-007) |
 | Offene Entscheidungen | ENT-039 |
 
 ---
@@ -471,3 +475,72 @@
 - **Begründung:** SRS-State-Verlust ist der einzige echte Anti-Pattern-Fall im Anki-Workflow — alles andere ist reparabel. Eine deterministische GUID aus dem Slug + Persistenz im Frontmatter ist der einzige Weg, der gegen *alle* drei Veränderungs-Achsen (Inhalt, Slug, Re-Export-Reihenfolge) stabil bleibt. Genanki unterstützt das nativ via `Note.guid` ohne Workaround. Alternative (random UUIDs ohne Frontmatter-Persistenz) würde bei jedem Re-Export neue Karten erzeugen — Duplikate, SRS-Verlust. Klares NO-GO.
 - **Auswirkung:** Skript schreibt in das Wiki-Frontmatter zurück (erster und einziger schreibender Output-Pfad bisher außerhalb des Agent-Flows). Architekt entscheidet, ob das mit der bestehenden Frontmatter-Schreibe-Funktion in [graph_writer.py](../graph_writer.py) wiederverwendet werden kann oder ein dedizierter `frontmatter_patch`-Helper sinnvoll ist. **Kein Konflikt mit Draft→Master-Workflow ([ENT-007](#ent-007-draft--master-git-workflow-für-llm-writes))** — die `anki_id`-Schreibung ist deterministisch, nicht-LLM, nicht-halluzinationsanfällig; ein direkter Master-Write ist gerechtfertigt. (Wenn Architekt anders sieht: eskalieren.) Optional empfohlen: Im Anki-Back-Feld einen Obsidian-Backlink (`obsidian://open?vault=repos&file=wiki/language/vocab/v_es_madrugada`) anhängen, damit der Lerner aus Anki direkt zur Wiki-Quelle springen kann — kontextueller Mehrwert ohne Zusatzkomplexität.
 - **Status:** beschlossen, Umsetzung ausstehend (Session 023)
+
+---
+
+## Session 025 — Workshop Knowledge-Graph-Tiefencheck (2026-05-08)
+> Vier ENT-Einträge aus Workshop-Phase 5 (PO-Synthese). Quelle: [workshop/05_po_synthesis.md](../workshop/05_po_synthesis.md), QM-Vorschläge in [workshop/04_qm.md §C1](../workshop/04_qm.md). Workshop-Charta: [workshop/README.md](../workshop/README.md).
+
+### [ENT-053] Sensitivity-Tier-Default für Bild-Inputs (Pre-Req für Multi-Modal-Backfill)
+- **Entschieden:** 2026-05-08 (Session 025, Workshop-Phase 5, PO-Beschluss)
+- **Entscheidung:** Bild-Inputs an den Telegram-Bot folgen einer **Privacy-Default-Doktrin**, asymmetrisch zu Vocab-Hint-Gate ([ENT-047](#ent-047-vocabentry-hint-gate-extraktion-nur-bei-hint-oder-deutsch-dominantem-input)/[ENT-048](#ent-048-ent-047-auslegung-hint-gate-nur-bei-gesetztem-language_detected)):
+  1. **Default ohne Hint:** Bild wird in `raw/assets/` archiviert (SHA1-basiert dedupliziert), **kein** Vision-API-Call. Lokal-only-Pfad. Kein Wiki-Write. Telegram-Bestätigung: "Bild gespeichert."
+  2. **Auto-Ingest mit explizitem Hint:** `#bild` oder `#vision` (case-insensitive Substring in der Caption) → [image_extractor.py](../agents/extractors/image_extractor.py) wird mit `tier="sensitive"` aufgerufen → Claude-Vision-Call → `raw/events/`-JSON → normaler Ingest-Flow.
+  3. **`#privat` als zusätzlicher Override:** auch wenn `#bild` gesetzt ist, blockt `#privat` jeden Cloud-Call. Quick-Save in `raw/assets/`, kein Auto-Ingest.
+  4. **PDF-Pfad analog:** `bot.py`-Handler für `MessageType.DOCUMENT` ruft [pdf_extractor.py](../agents/extractors/pdf_extractor.py) (lokal, kein Cloud) auf — Tier-Routing irrelevant, weil deterministisch lokal. Kein Hint-Gate für PDFs nötig.
+  5. **Tier-Wert für Vision-Calls:** `sensitive` (nicht `private`). Begründung: `private` würde Ollama-Vision-Modell verlangen — heute nicht verfügbar in unserer Stack-Wahl. `sensitive` routet weiterhin auf Cloud, aber mit PII-Scrubbing-Pflicht im image_extractor-Prompt (Architekt setzt um: "Wenn das Bild Personennamen, Adressen oder andere PII zeigt, beschreibe sie als generische Kategorien, nicht als Klartext.").
+- **Begründung:** [ENT-006](#ent-006-sensitivity-tier-modell-provider-routing) verlangt Tier-Routing; ohne Default-Tier für Bilder bricht der Vertrag mit dem ersten Bild-Drop, weil Claude Vision Cloud ist. **Asymmetrie zu ENT-047/048 ist bewusst:** dort blockt der Hint Cloud-Call (Privacy schützt), hier triggert der Hint den Cloud-Call (Default schützt). In beiden Fällen ist die **konservativere Variante Default** — bei Vocab ist das Lernen, bei Bildern ist es Privacy. **Architekt-Erstvorschlag** ([03 §A1 [01 §C6]](../workshop/03_architect.md)) war "Default `sensitive` + Hint blockt"; **QM-Verschärfung** ([04 §B1 R3](../workshop/04_qm.md)) auf "Default Quick-Save, Hint triggert" wurde übernommen — der Lerner muss aktiv Vision-Verarbeitung wollen, nicht aktiv blocken müssen.
+- **Auswirkung:** Architekt setzt um in BL-08 ([Workshop-Backlog](../workshop/backlog.md)). Bot-Handler `handle_photo` und `handle_document` (PDF) neu. SHA1-Asset-Dedup ([03 §D1](../workshop/03_architect.md)) als Pre-Req. Kosten: bei 5 Bildern/Woche mit Hint → ~$0,02/Monat (Haiku-Vision). Worst-Case 50/Tag → ~$1,50/Monat. Im Budget. **Bricht keinen bestehenden ENT** — ergänzt ENT-006 für Bilder, ENT-047/048 bleibt Vocab-spezifisch unverändert.
+- **Status:** beschlossen, Umsetzung ausstehend (BL-08 in Implementierungs-Session 026+).
+
+---
+
+### [ENT-054] `out/anki_export_log.json` als Persistenz-Pfad für Anki-Export-Zeitstempel
+- **Entschieden:** 2026-05-08 (Session 025, Workshop-Phase 5, PO-Beschluss)
+- **Entscheidung:** Der `last_export`-Zeitstempel pro VocabEntry-Slug, der für den **Health-Tag `health::stale-mnemonic`** ([Workshop §C5a](../workshop/01_ai_research.md)) gebraucht wird, wird in `out/anki_export_log.json` persistiert — **nicht** im Wiki-Frontmatter (kein zusätzliches `usage_stats:`-Feld pro VocabEntry).
+  1. **Format:** `{slug: last_export_iso}`-JSON, Granularität `YYYY-MM-DD` (ohne Zeitkomponente, vermeidet Drift-Toleranz-Probleme).
+  2. **Schreibe-Pfad:** `scripts/export_anki.py` liest die Datei am Anfang, vergleicht `frontmatter.updated > log[slug]` für jede Vocab-Datei, vergibt Tag `health::stale-mnemonic` wenn neuer, schreibt am Ende neuen Lauf-Zeitstempel zurück.
+  3. **Cold-Start:** wenn `out/anki_export_log.json` fehlt (z.B. neuer Klon, `out/`-Löschung), werden beim ersten Re-Export keine Health-Tags gesetzt — ab zweitem Export wieder aktiv. Akzeptabel, weil `out/` per Konvention Build-Artefakt-Ordner ist.
+  4. **`out/` ist gitignored** (bereits in `.gitignore` seit S023). Wert wird nicht zwischen Geräten synchronisiert — bewusst, weil Zeitstempel device-spezifisch sind.
+- **Begründung:** Drei Vorteile gegenüber `usage_stats:`-Frontmatter-Feld:
+  1. **WikiWrite-Vertrag-Schutz:** Der Wiki ist LLM-Schreib-Wiki. Jeder Frontmatter-Patch außerhalb Agent-Pfaden vergrößert die Liste der "Sonderwege" — heute genau einer (`anki_id`, [ENT-052](#ent-052-anki-card-identität-und-re-export-stabilität)). Ein zweiter ist vermeidbar.
+  2. **Atomarität:** Ein Export-Lauf produziert *eine* Log-Schreibe statt N Frontmatter-Patches. Re-Export-Idempotenz wird trivial.
+  3. **Diff-Sauberkeit:** Wiki-Diffs in Obsidian zeigen weiterhin nur Inhalt, nicht Tooling-Metadaten.
+  Architekt-Empfehlung in [03 §A1 [01 §C5]](../workshop/03_architect.md) und QM-Empfehlung [04 §C1 QK-10](../workshop/04_qm.md) konvergieren auf diesem Pfad.
+- **Auswirkung:** Architekt setzt um in BL-06 ([Workshop-Backlog](../workshop/backlog.md)). Kein Schema-Impact. Kein Konflikt mit `anki_id`-Patch-Pattern (das schreibt weiterhin ins Frontmatter, weil `anki_id` als Wiki-stabiler Identifier ENT-052-relevant ist; `last_export`-Zeitstempel ist nicht Wiki-stabil und gehört nicht ins Wiki). **Erste Etablierung des `out/`-Ordners als Persistenz-Pfad für Build-Artefakt-Metadaten** — Pattern für künftige Tooling-Logs (z.B. graph_stats, migrations/applied.json).
+- **Status:** beschlossen, Umsetzung ausstehend (BL-06 in Implementierungs-Session 026+).
+
+---
+
+### [ENT-055] IPA-Frontmatter-Slot für VocabEntry (Schema-Erweiterung)
+- **Entschieden:** 2026-05-08 (Session 025, Workshop-Phase 5, PO-Beschluss)
+- **Entscheidung:** [SCHEMA.md §3.2 VocabEntry](../doc/SCHEMA.md) wird um ein optionales Frontmatter-Feld `ipa: <string|null>` erweitert.
+  1. **Format:** IPA-Aussprache als String mit Klammern, sprachspezifisch (z.B. `"[ˈdwen.de]"` für `duende`, `"[mað.ɾuˈɣa.ða]"` für `madrugada`). Null/leer = nicht gefüllt.
+  2. **Pflicht:** **nein** — optional pro Wort. Renderer ([Workshop §B5 UX](../workshop/02_ux.md)) skipt leer (kein "(no IPA)"-Lärm).
+  3. **Backfill-Pflicht:** **nein.** Bestehende 7 elaborierte Vocab-Files bleiben ohne `ipa:` (nach BL-03 Frontmatter-Migration). Wenn ein Lerner künftig eine Karte mit IPA wünscht, kann er das Feld manuell ergänzen oder den Language-Agent neu laufen lassen.
+  4. **Erstellung:** Language-Agent (in [agents/language_agent.py](../agents/language_agent.py)) füllt `ipa` bei **Neu**-Erstellung von VocabEntries via Sonnet-Prompt-Erweiterung. Aufwand minimal (existierender Vocab-Erstellungs-Prompt um `ipa:`-Zeile ergänzen).
+  5. **Render-Slot:** `agents/render/card.py` ([Workshop §B5 UX](../workshop/02_ux.md), BL-05) liest `ipa`-Frontmatter, rendert als zweite Zeile unter dem Wort (Profil A/B/C — siehe [02_ux.md §B2/B3](../workshop/02_ux.md)).
+  6. **Sprachspezifische Formate:** Standard-IPA bleibt Default; pro Sprache kann der Language-Agent Konventions-Hinweise einbauen (z.B. spanisches IPA mit `ð`/`ɣ`-Spirantisierungs-Notation).
+- **Begründung:** UX-Empfehlung ([02 §B5](../workshop/02_ux.md)) für visuellen Aussprache-Anker direkt unter dem Wort. Architekt-Verdict ([03 §A1 [02 §B5 IPA]](../workshop/03_architect.md)): Frontmatter ist robuster als Body-Sektion `## Aussprache > IPA` (kein Markdown-Heading-Parsing, kein Konflikt mit künftigen `## Aussprache`-Bereichen). Optional + sprachspezifisch + kein Backfill = additiver Eingriff ohne Bruch-Risiko. Schema-Erweiterung ist additiv zu [ENT-005](#ent-005-schema-v03-entitäts-ontologie) — kein Revisions-ENT nötig (additive Erweiterung von Optional-Feldern fällt unter Erweiterung, nicht Änderung).
+- **Auswirkung:** Architekt setzt um in BL-05 (Render-Modul liest IPA) und parallel im Language-Agent (neuer Vocab-Erstellungs-Prompt). [SCHEMA.md §3.2](../doc/SCHEMA.md) wird mit `ipa: <string|null>` ergänzt — Architekt-Auftrag in BL-11 oder mit BL-05. UX-HTML-Mockups in [02_ux.md §B2/B3](../workshop/02_ux.md) bleiben gültig auch ohne IPA (Fallback-Skip).
+- **Status:** beschlossen, Umsetzung ausstehend (BL-05 + SCHEMA.md-Eintrag in Implementierungs-Session 026+).
+
+---
+
+### [ENT-056] Draft→Master-Workflow formal pausiert für MVP-2-Zweitwelle (revidiert ENT-007)
+- **Entschieden:** 2026-05-08 (Session 025, Workshop-Phase 5, PO-Beschluss)
+- **Revidiert:** [ENT-007](#ent-007-draft--master-git-workflow-für-llm-writes) — Status-Update, **keine** inhaltliche Aufhebung.
+- **Entscheidung:** Der Draft→Master-Workflow aus ENT-007 wird für die MVP-2-Zweitwelle und MVP-3-Vorbereitung **formal pausiert**. Wiki-Schreib-Pfade laufen weiterhin direkt auf `master`, wie sie es seit MVP-1 in der Code-Realität tun.
+  1. **Was pausiert ist:** Bot-Pipeline (PersonalFact, VocabEntry, etc.) schreibt direkt auf `master`. `graph_writer.create/update/append` bleiben Direct-Master-Writes. `approve_draft()`/`reject_draft()` werden aktuell nicht aufgerufen.
+  2. **Was Pause **nicht** bedeutet:** Der Code-Pfad in [agents/graph_writer.py](../agents/graph_writer.py) wird **nicht entfernt** — er bleibt als Skelett für Re-Aktivierung. Der Branch-Bug (BL-01, `main` → `master`) wird trotzdem gefixt, weil schlafende Mine.
+  3. **Re-Aktivierungs-Trigger:** Sobald LLM-getriggerte Wiki-Writes mit **Halluzinations-Risiko** dazukommen — typisches Beispiel: LLM-Lint-Fixes mit Frei-Text-Generation (über die heutigen deterministischen Detektoren in BL-07 hinaus), oder Reflective-Pass aus [01 §B4](../workshop/01_ai_research.md), oder Concept-Synthese mit LLM (BL-?, MVP-3+). **Erste solche Wiki-Schreibe ist der Re-Aktivierungs-Trigger** — neuer ENT mit `revidiert: ENT-056`-Verweis und Re-Aktivierungs-Begründung.
+  4. **Was während der Pause weiterhin Direct-Master-Write-legitim ist** (deterministisch, nicht-LLM, nicht-halluzinationsanfällig):
+     - `anki_id`-Frontmatter-Patch ([ENT-052](#ent-052-anki-card-identität-und-re-export-stabilität))
+     - C4 Frontmatter-Migration (BL-03)
+     - C1 Index-Reparatur und `agents/frontmatter.py`-Helper (BL-04)
+     - Health-Tag-Logging in `out/anki_export_log.json` (ENT-054)
+     - C3 Lint-Auto-Fixes (Backlink-Symmetrie, Index-Sync, Slug-Dedup-Detektor — letzterer mit Telegram-Frage statt LLM-Schreibe; BL-07)
+     - C8 User-Profile Self-Refresh (BL-10) — Achtung: nutzt Sonnet, **aber Append-Diff statt Overwrite** und ohne Halluzinations-anfälligen Multi-Wiki-Write-Pfad. Grenz-Fall, in der Pause akzeptabel weil Append-Diff + interner Lint-Pass.
+- **Begründung:** [ENT-007](#ent-007-draft--master-git-workflow-für-llm-writes) ist seit MVP-1 in der Code-Realität dormant ([Workshop 01 §A2(b) L11](../workshop/01_ai_research.md)). Re-Aktivierung würde bedeuten, **alle bestehenden Direct-Writes** (Anki-Patch, künftige Lint-Fixes, Migrationen) in den Draft-Pfad zu zwingen — deutlich mehr Aufwand als ein formaler Pause-Beschluss. **Vertrags-Stabilität ist wichtiger als Vertrags-Reinheit** — eine stillschweigende Dormanz ist schlechter als eine dokumentierte Pause mit Re-Aktivierungs-Trigger. QM-Empfehlung [04 §C1 QK-13](../workshop/04_qm.md) wurde übernommen. Architekt-Befund [03 §D5](../workshop/03_architect.md) wurde übernommen.
+- **Auswirkung:** ENT-007 bleibt formal gültig, aber sein **Status** wird durch ENT-056 als "pausiert" markiert. Künftige Engineer/PO-Sessions referenzieren ENT-007 mit dem Verweis auf ENT-056. Wenn LLM-Lint-Fixes (post-MVP-3) dazukommen, ist die Re-Aktivierung ein eigener ENT-Vorgang. Aktualisierung in [hinweise/technischer_hinweis.md](../hinweise/technischer_hinweis.md): Eintrag "graph_writer Direct-Master-Schreibe" wird **nicht** als Schuld geführt (war es nie offiziell), aber der Branch-Bug-Fix (BL-01) wird als Schuld eingetragen + behoben.
+- **Status:** final (Status-Update zu ENT-007 für MVP-2-Zweitwelle/MVP-3-Vorbereitung). Re-Aktivierung erfordert separaten ENT.
