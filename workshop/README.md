@@ -89,7 +89,7 @@ workshop/
 | 0 — Workshop ausgerufen (PO) | 2026-05-08 | ✓ |
 | 1 — AI-Research | TBD | offen |
 | 2 — UX | TBD | offen |
-| 3 — Architekt | TBD | offen |
+| 3 — Architekt | 2026-05-08 | ✓ |
 | 4 — QM | TBD | offen |
 | 5 — PO-Synthese | TBD | offen |
 

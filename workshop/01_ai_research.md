@@ -202,6 +202,7 @@
 - **Hebel:** löst L1 + L5 + L7.
 
 ### C4: Frontmatter-Schuld-Migration (einmaliges Skript)
+(!)ARCH-FRAGE: Migration schreibt direkt auf wiki/ — Verhältnis zum Draft→Master-Workflow (ENT-007)? Detail in 03_architect.md §A.(!)
 - **Klassifizierung:** `[MACHBAR]`
 - **Was:** `scripts/migrate_vocab_frontmatter.py` mit pyyaml-Roundtrip — liest jedes der 7 elaborierten Vocab-Files, parst per Regex (vorhandener Workaround), schreibt sauberes YAML zurück. Plus: Fix in [language_agent.write_entries:423-459](../agents/language_agent.py#L423-L459) — sauberer Frontmatter-Build mit pyyaml.dump statt f-string-dedent.
 - **State-of-Art-Bezug:** §B1 Karpathy "lint = stale claims, missing cross-references" — strukturelles Datenmodell muss zuerst stimmen.
@@ -212,6 +213,7 @@
 - **(!)PO-Deja-vu:** Diese Chance ist im S024-Brief schon als Option 1/2/3 verhandelt; PO hat sie in den Workshop-Backlog (P2) verschoben. C4 ist die konkrete Form, die der Workshop empfiehlt.
 
 ### C5: Symbiose Graph↔Frontend — Anki-Karte als Renderer-Layer mit Health-Tag
+(!)ENT-NÖTIG: C5a verlangt persistierten Export-Zeitstempel pro Karte — `out/anki_export_log.json` vs. `usage_stats:` im Wiki ist eine ENT-Frage. Detail in 03_architect.md §A.(!)
 - **Klassifizierung:** `[MACHBAR-BEDINGT: erst nach C1 + C4]`
 - **Was (zwei Sub-Chancen):**
   - **C5a** — `--health`-Modus für `scripts/export_anki.py`: Skript prüft `wiki/language/vocab/v_*.md` `updated`-Datum gegen Anki-`anki_id` (Anki-Tag `health::stale-mnemonic` setzen, wenn Wiki-Update neuer als Karten-Export-Zeitstempel). Sichtbar im Anki-Filter — der Lerner weiß, "diese Eselsbrücke wurde überarbeitet".
@@ -224,6 +226,7 @@
 - **Detail-Übergabe an UX:** [handovers/handover_01_research_to_ux.md §Symbiose](handovers/handover_01_research_to_ux.md).
 
 ### C6: Multi-Modal-Backfill als Mini-Service (Bilder/PDFs)
+(!)ENT-NÖTIG: Sensitivity-Tier-Verhältnis (ENT-006) für Bilder ungeklärt — Vision-API ist Cloud, ohne PII-Stripping bricht das `private`-Tier. Detail in 03_architect.md §A.(!)
 - **Klassifizierung:** `[MACHBAR-BEDINGT: erst wenn Bild-Trigger im Bot]`
 - **Was:** Bot-Handler für `MessageType.PHOTO` und `MessageType.DOCUMENT` (PDF) anhängen → ruft existierenden [image_extractor.py](../agents/extractors/image_extractor.py) bzw. [pdf_extractor.py](../agents/extractors/pdf_extractor.py) → schreibt `raw/events/`-JSON wie heute Voice → normaler Ingest-Flow.
 - **State-of-Art-Bezug:** §B3 Caption-then-Index-as-Markdown.
