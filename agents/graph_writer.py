@@ -1,4 +1,4 @@
-"""graph_writer.py — WikiWrite execution and Draft→Main branch workflow."""
+"""graph_writer.py — WikiWrite execution and Draft→Master branch workflow."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def execute_writes(writes: list[WikiWrite], wiki_root: Path = WIKI_ROOT) -> list
 
 
 def approve_draft(wiki_root: Path = WIKI_ROOT) -> bool:
-    """Merge draft → main. Called via Telegram callback after user approval."""
+    """Merge draft → master. Called via Telegram callback after user approval."""
     result = subprocess.run(
         ["git", "merge", "draft", "--no-ff", "-m", "approved by user"],
         cwd=wiki_root, capture_output=True, text=True,
@@ -52,9 +52,9 @@ def approve_draft(wiki_root: Path = WIKI_ROOT) -> bool:
 
 
 def reject_draft(wiki_root: Path = WIKI_ROOT) -> bool:
-    """Reset draft branch to current main state."""
+    """Reset draft branch to current master state."""
     cmds = [
-        ["git", "checkout", "main"],
+        ["git", "checkout", "master"],
         ["git", "branch", "-D", "draft"],
         ["git", "checkout", "-b", "draft"],
     ]
