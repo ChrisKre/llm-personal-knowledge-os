@@ -90,7 +90,7 @@ workshop/
 | 1 — AI-Research | TBD | offen |
 | 2 — UX | TBD | offen |
 | 3 — Architekt | 2026-05-08 | ✓ |
-| 4 — QM | TBD | offen |
+| 4 — QM | 2026-05-08 | ✓ |
 | 5 — PO-Synthese | TBD | offen |
 
 ## Wie der Nutzer den Workshop fährt
