@@ -23,8 +23,12 @@ from datetime import date
 from pathlib import Path
 
 import genanki
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from agents import frontmatter  # noqa: E402
 VOCAB_DIR = REPO_ROOT / "wiki" / "language" / "vocab"
 DEFAULT_OUT = REPO_ROOT / "out" / "pks_spanisch_vokabeln.apkg"
 EXPORTABLE_STATUS = {"elaborated", "practiced"}
@@ -71,64 +75,6 @@ class VocabRecord:
     translation_de: str | None = None
     first_example: str | None = None
     mnemonic: str | None = None
-
-
-_FM_DELIM_RE = re.compile(r"^\s*---\s*$")
-
-
-def _split_frontmatter(text: str) -> tuple[str, str]:
-    """Return (frontmatter_block, body) — both as raw strings.
-
-    Robust against the leading-whitespace dedent-bug in legacy vocab files
-    (each line may carry up to ~16 spaces of indent).
-    """
-    lines = text.splitlines()
-    start = end = -1
-    for i, line in enumerate(lines):
-        if _FM_DELIM_RE.match(line):
-            if start == -1:
-                start = i
-            else:
-                end = i
-                break
-    if start == -1 or end == -1:
-        return "", text
-    fm = "\n".join(lines[start + 1:end])
-    body = "\n".join(lines[end + 1:])
-    return fm, body
-
-
-_TAGS_RE = re.compile(r"^\s*tags:\s*\[([^\]]*)\]\s*$")
-_KV_RE = re.compile(r"^\s*([a-zA-Z_][\w]*)\s*:\s*(.*?)\s*$")
-
-
-_WANTED_KEYS = {"type", "created", "updated", "status", "word", "language",
-                "difficulty", "anki_id"}
-
-
-def _parse_frontmatter(fm: str) -> dict:
-    """Pull the top-level scalar fields we care about out of the frontmatter.
-
-    Skips yaml.safe_load because legacy files have inconsistent indent that
-    pyyaml refuses. First occurrence wins — guards against nested duplicates
-    like 'type: ?' under cross_language_bridges shadowing 'type: VocabEntry'.
-    """
-    out: dict = {}
-    for raw_line in fm.splitlines():
-        m_tags = _TAGS_RE.match(raw_line)
-        if m_tags and "tags" not in out:
-            tags_inner = m_tags.group(1).strip()
-            tags = [t.strip().strip('"').strip("'") for t in tags_inner.split(",") if t.strip()]
-            out["tags"] = tags
-            continue
-        m_kv = _KV_RE.match(raw_line)
-        if not m_kv:
-            continue
-        key = m_kv.group(1)
-        if key in _WANTED_KEYS and key not in out:
-            val = m_kv.group(2).strip().strip('"').strip("'")
-            out[key] = val
-    return out
 
 
 _GENUS_RE = re.compile(r"^\s*-\s*\*\*Genus:\*\*\s*(.+?)\s*$", re.MULTILINE)
@@ -180,28 +126,41 @@ def _extract_genus(body: str) -> str | None:
     return None
 
 
+def _str_or_none(value: object) -> str | None:
+    """Coerce a frontmatter value to a stripped string, or None if empty."""
+    if value in (None, "", "null", "~"):
+        return None
+    if hasattr(value, "isoformat"):
+        return value.isoformat()
+    s = str(value).strip()
+    return s or None
+
+
 def parse_vocab_file(path: Path) -> VocabRecord | None:
-    text = path.read_text(encoding="utf-8")
-    fm_block, body = _split_frontmatter(text)
-    if not fm_block:
+    try:
+        fm, body = frontmatter.read(path)
+    except yaml.YAMLError:
         return None
-    fm = _parse_frontmatter(fm_block)
-    if fm.get("type") != "VocabEntry":
+    if not fm or fm.get("type") != "VocabEntry":
         return None
+
     slug = path.stem
-    anki_id = fm.get("anki_id")
-    if anki_id in (None, "", "null", "~"):
-        anki_id = None
+    tags_raw = fm.get("tags") or []
+    if isinstance(tags_raw, str):
+        tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
+    else:
+        tags = [str(t).strip() for t in tags_raw if str(t).strip()]
+
     return VocabRecord(
         slug=slug,
         path=path,
-        word=fm.get("word", "").strip() or slug,
-        language=fm.get("language", "").strip(),
-        status=fm.get("status", "").strip(),
-        difficulty=(fm.get("difficulty") or None),
-        updated=(fm.get("updated") or None),
-        anki_id=anki_id,
-        tags=fm.get("tags", []),
+        word=str(fm.get("word") or "").strip() or slug,
+        language=str(fm.get("language") or "").strip(),
+        status=str(fm.get("status") or "").strip(),
+        difficulty=_str_or_none(fm.get("difficulty")),
+        updated=_str_or_none(fm.get("updated")),
+        anki_id=_str_or_none(fm.get("anki_id")),
+        tags=tags,
         genus=_extract_genus(body),
         translation_de=_extract_de(body),
         first_example=_extract_first_example(body),
@@ -213,24 +172,20 @@ def parse_vocab_file(path: Path) -> VocabRecord | None:
 # Frontmatter patch (anki_id back-write)
 # ---------------------------------------------------------------------------
 
-_ANKI_ID_LINE_RE = re.compile(r"^(\s*)anki_id\s*:\s*.*$", re.MULTILINE)
-
-
 def patch_anki_id(path: Path, new_id: str) -> bool:
-    """Set frontmatter anki_id to new_id. Idempotent.
+    """Set frontmatter ``anki_id`` to ``new_id``. Idempotent.
 
-    Returns True if the file was changed. Preserves indentation so
-    re-runs over a file already carrying the correct id are no-ops.
+    Returns True if the file was changed. Re-runs over a file that already
+    carries the correct id are no-ops.
     """
-    text = path.read_text(encoding="utf-8")
-    m = _ANKI_ID_LINE_RE.search(text)
-    if not m:
+    try:
+        fm, body = frontmatter.read(path)
+    except yaml.YAMLError:
         return False
-    new_line = f"{m.group(1)}anki_id: {new_id}"
-    new_text = text[:m.start()] + new_line + text[m.end():]
-    if new_text == text:
+    if str(fm.get("anki_id") or "").strip() == new_id:
         return False
-    path.write_text(new_text, encoding="utf-8")
+    fm["anki_id"] = new_id
+    frontmatter.write(path, fm, body)
     return True
 
 
