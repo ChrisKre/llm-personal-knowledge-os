@@ -91,9 +91,6 @@ Was fehlt: Ton-Coaching auf Basis der echten Stimme.
 
 | Schuld | Auswirkung | Backlog-Bezug |
 |---|---|---|
-| **`graph_writer.py:55-65` Branch-Bug** — `git checkout main` + `git branch -D draft` an drei Stellen + zwei Doc-Strings. Branch heißt `master` ([ENT-039](../doc/ENTSCHEIDUNGEN.md#ent-039-branch-namen-konvention-master-vs-main)). | Heute schlafend, wird akut sobald `reject_draft()` aufgerufen wird (z.B. wenn Lint-Live geht, BL-07). | **BL-01**, MVP-2.5 Schritt 0 in S026 |
-| **`tests/`-Struktur fehlt komplett** — kein `pytest`-Setup, keine Fixtures, keine Snapshot-Tests. | Pflicht-Pre-Req für vier destruktive Workshop-Schritte (BL-03, BL-07, BL-08, BL-05). Ohne Test-Backstop ist die MVP-2-Zweitwelle ein Schreib-und-Hoffe-Projekt. | **BL-02**, MVP-2.5 Schritt 0b in S026 |
-| **Frontmatter-Schuld auf 7 elaborierten VocabEntries** — pyyaml-Verweigerung wegen `dedent()`-Bug in `language_agent.py:423-459`. Regex-Workaround in `export_anki.py:79-98` und potenziell weiteren Konsumenten verteilt. | Erbe-Risiko: jeder neue Render-Konsument (Discord, E-Mail, Lint, Story-Lab-Vocab) erbt den Workaround. Kosten skalieren mit Konsumenten-Zahl. | **BL-03** (C4 Migration), MVP-2.5 Schritt 1 in S026 |
 | **Index-Drift `index.md` ↔ Filesystem** — Index meldet 18 PFs, FS hat 10. Kein `index_updater`-Modul-Pfad existiert (Phantom in ARCHITECTURE.md §6.1). | Phase-1-Retrieval ist faktisch nur Slug-Token-Match; jede `graph_reader`-Suche liefert potenziell tote Treffer. | **BL-04** (C1 Index-Reparatur), MVP-2.5 Schritt 2 |
 | **`ARCHITECTURE.md §6.3` widerspricht Code + ENT-027** — Threshold-Wert `150` vs. `30`. | Doku-konsistent vor BL-09 (FTS5-Build). Doku-Schuld, nicht funktional. | **BL-11**, niedrige Priorität |
 | **`agents/graph_reader.py:3-4` Header-Kommentar widerspricht Z.20 derselben Datei** — Threshold `150` vs. `30` (QM-Bonus-Befund). | Interne Datei-Inkonsistenz, kein Funktions-Risiko. | **BL-11**, mit Threshold-Fix bündeln |
@@ -109,7 +106,7 @@ Was fehlt: Ton-Coaching auf Basis der echten Stimme.
 | L1, L5, L7 aus [Workshop 01 §A3](../workshop/01_ai_research.md) — Lint-Stub, Konsolidierung, Backlink-Symmetrie | BL-07 | wartet auf BL-03 |
 | L2, L3 — Index-Drift + Slug-Summaries | BL-04 | wartet auf BL-03 |
 | L4 — Phase-2-FTS5 nie getestet | BL-09 | wartet auf BL-04 |
-| L6 — Frontmatter-Schuld auf 7 Vocab-Files | BL-03 | startet in S026 |
+| L6 — Frontmatter-Schuld auf 7 Vocab-Files | BL-03 | abgeschlossen in S026 (commit BL-03) |
 
 ### Nicht erledigte Schulden (bleiben Backlog, vom Workshop nicht berührt)
 

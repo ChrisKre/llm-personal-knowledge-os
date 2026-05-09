@@ -15,6 +15,7 @@ from typing import TypedDict
 from langgraph.graph import END, StateGraph
 
 from agents.base_agent import BaseAgent
+from agents.frontmatter import render as render_frontmatter
 from agents.graph_writer import WikiWrite
 
 WIKI_ROOT = Path(__file__).parent.parent
@@ -402,17 +403,41 @@ class LanguageAgent(BaseAgent):
             slug = _slugify(word)
             path = f"wiki/language/vocab/v_{lang}_{slug}.md"
 
-            bridge_section = ""
             bridge_lang = vocab.get("bridge_lang", "none")
             if bridge_lang and bridge_lang.lower() != "none":
-                bridge_section = (
-                    f"cross_language_bridges:\n"
-                    f"  - lang: {bridge_lang}\n"
-                    f"    type: {vocab.get('bridge_type', '?')}\n"
-                    f"    note: \"{vocab.get('bridge_note', '')}\"\n"
-                )
+                bridges: list[dict] = [{
+                    "lang": bridge_lang,
+                    "type": vocab.get("bridge_type", "?"),
+                    "note": vocab.get("bridge_note", ""),
+                }]
             else:
-                bridge_section = "cross_language_bridges: []"
+                bridges = []
+
+            tags_raw = vocab.get("tags", "")
+            if isinstance(tags_raw, str):
+                tags_list = [t.strip() for t in tags_raw.split(",") if t.strip()]
+            else:
+                tags_list = list(tags_raw)
+
+            frontmatter = {
+                "type": "VocabEntry",
+                "created": today,
+                "updated": today,
+                "status": "elaborated",
+                "word": word,
+                "language": lang,
+                "difficulty": vocab.get("difficulty", "?"),
+                "anki_id": None,
+                "tags": tags_list,
+                "sources": [],
+                "related": [],
+                "cross_language_bridges": bridges,
+                "usage_stats": {
+                    "impuls_count": 0,
+                    "last_impuls": None,
+                    "codemix_used": 0,
+                },
+            }
 
             examples = "\n".join([
                 f"- {vocab.get('example_a', '')}",
@@ -420,44 +445,22 @@ class LanguageAgent(BaseAgent):
                 f"- {vocab.get('example_c', '')}",
             ])
 
-            content = dedent(f"""\
-                ---
-                type: VocabEntry
-                created: {today}
-                updated: {today}
-                status: elaborated
-                word: "{word}"
-                language: {lang}
-                difficulty: {vocab.get('difficulty', '?')}
-                anki_id: null
-                tags: [{vocab.get('tags', '')}]
-                sources: []
-                related: []
-                {bridge_section}
-                usage_stats:
-                  impuls_count: 0
-                  last_impuls: null
-                  codemix_used: 0
-                ---
+            body = (
+                f"# {word}\n\n"
+                f"## Übersetzungen\n"
+                f"- **DE:** {vocab.get('translations_de', '')}\n"
+                f"- **EN:** {vocab.get('translations_en', '')}\n\n"
+                f"## Grammatik\n"
+                f"- **Typ:** {vocab.get('grammar_type', '')}\n"
+                f"- **Genus:** {vocab.get('grammar_gender', '—')}\n"
+                f"- **Hinweis:** {vocab.get('grammar_note', '')}\n\n"
+                f"## Beispielsätze\n"
+                f"{examples}\n\n"
+                f"## Eselsbrücke\n"
+                f"{vocab.get('mnemonic', '')}\n"
+            )
 
-                # {word}
-
-                ## Übersetzungen
-                - **DE:** {vocab.get('translations_de', '')}
-                - **EN:** {vocab.get('translations_en', '')}
-
-                ## Grammatik
-                - **Typ:** {vocab.get('grammar_type', '')}
-                - **Genus:** {vocab.get('grammar_gender', '—')}
-                - **Hinweis:** {vocab.get('grammar_note', '')}
-
-                ## Beispielsätze
-                {examples}
-
-                ## Eselsbrücke
-                {vocab.get('mnemonic', '')}
-                """)
-
+            content = render_frontmatter(frontmatter, body)
             wiki_writes.append(WikiWrite(path=path, content=content, operation="create"))
 
         # LanguageBridges
