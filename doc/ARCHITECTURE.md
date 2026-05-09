@@ -427,6 +427,8 @@ workflow.add_edge("write_to_graph",    "update_index")
 workflow.add_edge("update_index",      END)
 ```
 
+> **Status `index_updater`:** Heute durch [`scripts/rebuild_index.py`](../scripts/rebuild_index.py) realisiert (laeufergetriebenes Re-Build-Skript, kein LangGraph-Node-Modul). Eingefuehrt in BL-04 (Workshop S025) — siehe [workshop/03_architect.md §B1](../workshop/03_architect.md). Ein eigenstaendiges `agents/index_updater.py` existiert nicht.
+
 ### 6.2 Datei-Schreib-Vertrag
 
 Kein Agent schreibt direkt Dateien. Alle schreiben in den State:
@@ -446,7 +448,7 @@ Der `graph_reader` ist die einzige Stelle die weiß wie der Index implementiert 
 
 ```python
 # agents/graph_reader.py
-WIKI_PAGE_THRESHOLD = 150  # ab hier: SQLite statt index.md
+WIKI_PAGE_THRESHOLD = 30  # ab hier: SQLite statt index.md
 
 def search_wiki(
     query: str,
@@ -465,8 +467,8 @@ def fetch_context(state: SupervisorState) -> SupervisorState:
     return {**state, "graph_context": pages}
 ```
 
-**Phase 1** (< 150 Seiten): `_search_index_md` — parst `index.md`, einfaches Keyword-Matching.  
-**Phase 2** (≥ 150 Seiten): `_search_sqlite` — SQLite FTS5, ~150 Zeilen Python-Indexer.  
+**Phase 1** (< 30 Seiten): `_search_index_md` — parst `index.md`, einfaches Keyword-Matching.  
+**Phase 2** (≥ 30 Seiten): `_search_sqlite` — SQLite FTS5, ~150 Zeilen Python-Indexer.  
 **Switch:** automatisch durch `_wiki_size()`. Der Rest des Systems merkt nichts.
 
 ---

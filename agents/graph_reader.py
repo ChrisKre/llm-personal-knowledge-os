@@ -1,7 +1,7 @@
 """graph_reader.py — Index abstraction layer for the Knowledge Graph.
 
-Phase 1 (< 150 wiki pages): keyword search over index.md
-Phase 2 (>= 150 wiki pages): SQLite FTS5 full-text search
+Phase 1 (< 30 wiki pages): keyword search over index.md
+Phase 2 (>= 30 wiki pages): SQLite FTS5 full-text search
 
 The switch is automatic via _wiki_size(). Nothing outside this module needs to know
 which phase is active.
