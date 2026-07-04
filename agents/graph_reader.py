@@ -304,6 +304,10 @@ def _normalize_type(section_title: str) -> str:
         "languagebridges": "LanguageBridge",
         "concepts": "Concept",
         "styleprofiles": "StyleProfile",
+        "topicpages": "TopicPage",
+        # Sammel-Typ der human-owned Familie (SCHEMA §3.10) — Index-Sektion
+        # buendelt HealthProtocol/HealthReview/DeepResearchPrompt.
+        "human-owned (health)": "HumanOwned",
     }
     return mapping.get(section_title.lower(), section_title)
 
@@ -317,6 +321,8 @@ def _ref_to_path(page_ref: str, page_type: str) -> str:
         "LanguageBridge": "wiki/language/bridges",
         "Concept":        "wiki/concepts",
         "StyleProfile":   "wiki/personal/style_refs",
+        "TopicPage":      "wiki/topics",
+        "HumanOwned":     "wiki/personal/health",
     }
     base_dir = type_dirs.get(page_type, "wiki")
     return f"{base_dir}/{page_ref}.md"

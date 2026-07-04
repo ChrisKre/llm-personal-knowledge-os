@@ -78,7 +78,12 @@ SECTION_SPECS: list[tuple[str, str, str, str | None]] = [
     ("LanguageBridges",     "LanguageBridge",     "LanguageBridge", None),
     ("Concepts",            "Concept",            "Concept",        None),
     ("StyleProfiles",       "StyleProfile",       "StyleProfile",   None),
+    ("TopicPages",          "TopicPage",          "TopicPage",      None),
+    ("Human-Owned (health)", "HumanOwned",        "HumanOwned",     None),
 ]
+
+# Human-owned Typen-Familie (SCHEMA §3.10, ENT-062) — drei Typen, ein Bucket.
+HUMAN_OWNED_TYPES = ("HealthProtocol", "HealthReview", "DeepResearchPrompt")
 
 
 def _bucket_key(fm: dict[str, Any]) -> str | None:
@@ -91,6 +96,8 @@ def _bucket_key(fm: dict[str, Any]) -> str | None:
         if lang in ("es", "en"):
             return f"VocabEntry-{lang}"
         return None
+    if type_ in HUMAN_OWNED_TYPES:
+        return "HumanOwned"
     for _, key, t, _lang in SECTION_SPECS:
         if t == type_ and key == type_:
             return key
@@ -108,11 +115,25 @@ def _summary(slug: str, fm: dict[str, Any]) -> str:
       - CulturalEntry: ``name``-Feld, sonst slug.
       - PersonalFact: ``slug (story_score: N)`` falls ``story_score``
         gesetzt ist, sonst slug.
+      - TopicPage: ``<topic> (<domain>, N Quellen)`` aus ``topic``/``domain``/
+        ``sources``-Feldern, sonst slug.
+      - Human-owned Typen (HUMAN_OWNED_TYPES): ``title``-Feld, sonst slug.
       - Sonst: slug.
     """
     if fm.get("summary"):
         return str(fm["summary"]).strip()
     type_ = fm.get("type")
+    if type_ == "TopicPage":
+        topic = str(fm.get("topic") or "").strip()
+        domain = str(fm.get("domain") or "").strip()
+        sources = fm.get("sources")
+        n = len(sources) if isinstance(sources, list) else 0
+        if topic and domain:
+            return f"{topic} ({domain}, {n} Quellen)"
+        return slug
+    if type_ in HUMAN_OWNED_TYPES:
+        title = str(fm.get("title") or "").strip()
+        return title or slug
     if type_ == "VocabEntry":
         word = str(fm.get("word") or "").strip()
         return word or slug

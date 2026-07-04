@@ -1,5 +1,5 @@
 # SCHEMA.md — Die Verfassung des LLM-Personal-Knowledge-OS
-> Version: 0.3 | Datum: 2026-04-18 | Status: DRAFT
+> Version: 0.4 | Datum: 2026-07-04 | Status: DRAFT
 
 ---
 
@@ -9,7 +9,7 @@ Dieses System ist **kein Notiz-Tool**. Es ist ein persistentes, kompiliertes Ged
 
 Drei Axiome:
 1. **Rohdaten sind heilig.** Sie werden niemals verändert — nur gelesen und verarbeitet.
-2. **Der Graph gehört der KI.** Menschen schreiben keine Wiki-Seiten manuell. Die KI schreibt, der Mensch liest und korrigiert.
+2. **Der Graph gehört der KI — außerhalb deklarierter human-owned Zonen.** Menschen schreiben keine Wiki-Seiten manuell; die KI schreibt, der Mensch liest und korrigiert. Ausnahme sind die in §2 deklarierten **human-owned Zonen** ([ENT-062](ENTSCHEIDUNGEN.md#ent-062-axiom-2-carve-out-human-owned-zonen-im-wiki)): dort schreibt nur der Mensch. Die KI liest sie als graph_context, flaggt Widersprüche (§8-Mechanismus, Nutzer entscheidet), schreibt und auto-fixt dort **nie** — durchgesetzt über einen deterministischen Guard in `graph_writer` (§2). Ownership-Wechsel ist ein bewusster Akt des Nutzers (Flag entfernen / Seite verschieben), kein Schleichweg.
 3. **Jede Interaktion ist potentielle Erkenntnis.** Der Supervisor bewertet jeden Input auf Graphrelevanz.
 
 ---
@@ -26,17 +26,19 @@ knowledge-os/
 │   └── style_refs/             # Stil-Referenz-Medien (IMMUTABLE)
 │       └── [name]/             # je Referenz: chappelle/, ted-talk/, ...
 │
-├── wiki/                       # [LLM-OWNED] Kompiliertes Wissen
+├── wiki/                       # [LLM-OWNED] Kompiliertes Wissen (Ausnahme: human-owned Zonen, s.u.)
 │   ├── personal/               # Personal Facts, Diary-Einträge
 │   │   ├── facts/              # Einzelne PersonalFact-Seiten
 │   │   ├── stories/            # Ausgearbeitete Geschichten/Pointen
-│   │   └── style_refs/         # StyleProfile-Seiten (sp_[name].md)
+│   │   ├── style_refs/         # StyleProfile-Seiten (sp_[name].md)
+│   │   └── health/             # [HUMAN-OWNED] Gesundheits-Protokoll — Mensch schreibt, KI liest (ENT-062)
 │   ├── language/               # Mehrsprachiges Vokabular, Grammatik, Kultur
 │   │   ├── vocab/              # Einzelne VocabEntry-Seiten (alle Sprachen)
 │   │   ├── grammar/            # Grammatik-Konzepte (je Sprache)
 │   │   ├── culture/            # Personen, Orte, Kulturstichworte (je Land/Region)
 │   │   └── bridges/            # Cross-Language-Korrelationen & Kognaten
-│   └── concepts/               # Allgemeine Konzepte, Themen, Querverweise
+│   ├── concepts/               # Allgemeine Konzepte, Themen, Querverweise
+│   └── topics/                 # TopicPages — aggregiertes Fremdwissen (tp_*, §3.9)
 │
 ├── templates/                  # Markdown-Templates für jeden Entitätstyp
 ├── agents/                     # Python-Agenten-Code
@@ -46,6 +48,16 @@ knowledge-os/
 ├── index.md                    # [LLM-MAINTAINED] Inhaltsverzeichnis aller Wiki-Seiten
 └── log.md                      # [LLM-MAINTAINED] Append-only Operationslog
 ```
+
+### Human-owned Zonen (Axiom-2-Carve-out, ENT-062)
+
+Deklarierte Verzeichnisse, in denen **nur der Mensch** schreibt. Axiom 2 gilt außerhalb dieser Zonen uneingeschränkt.
+
+| Zone | Inhalt | Seit |
+|---|---|---|
+| `wiki/personal/health/` | Human-owned Gesundheitsnotizen (Typen-Familie §3.10) | 2026-07-04 (ENT-062) |
+
+**Doppel-Kennzeichnung:** (1) Deklaration in dieser Tabelle — Enforcement über den deterministischen Guard in `graph_writer` (`assert_writable()`, harte Exception vor jedem Write; dieselbe geteilte Funktion muss vor jedem künftigen Datei-Write-Pfad aufgerufen werden, auch Lint-Auto-Fixes). (2) `owner: human`-Frontmatter pro Seite — Portabilität, Obsidian-sichtbar, Lint-filterbar. Konsistenz der Doppel-Kennzeichnung („Zone ⊄ owner-Flags") prüft ein Lint-Detektor. Die KI liest die Zone als graph_context und flaggt Widersprüche (§8), schreibt und auto-fixt dort nie.
 
 ---
 
@@ -232,6 +244,90 @@ Append-only pro Entitätstyp. Format wie in ARCHITECTURE.md §2.2 beschrieben.
 
 Append-only. Format: `## [YYYY-MM-DDTHH:MM] operation | Kurzbeschreibung`
 
+### 3.9 `TopicPage`
+> Aggregiertes **Fremdwissen** zu einem Thema — destilliert aus externen Quellen (`raw/`-Clips), quellen-attribuiert, mit Konsens/Dissens als First-Class-Inhalt. Entsteht **per Ingestion, nie emergent** (Abgrenzung zu `Concept`, ENT-010 unberührt). Lebt in `wiki/topics/`. Beschluss: [ENT-057](ENTSCHEIDUNGEN.md#ent-057-neuer-entitätstyp-topicpage-für-fremdwissen-schema-39).
+
+**Frontmatter:**
+
+```yaml
+---
+type: TopicPage
+topic: sauna            # kebab-slug, == Dateiname ohne Prefix (tp_[domain]_<topic>.md)
+domain: health | tech | language | music | esport | photo | career | other
+mode: claims | digest           # claims: Konsens/Dissens/Einzelbefunde (empirisches Wissen)
+                                # digest: Kernaussagen/Primär-vs-Rezeption/Einordnung (Design-/Definitions-Wissen)
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+status: raw | merged | reviewed # raw = Erst-Extraktion (1 Quelle), merged = ≥2 Quellen konsolidiert,
+                                # reviewed = Nutzer hat freigegeben
+tags: []
+sensitivity: sensitive          # Pflicht-Default bei domain: health (ENT-061); sonst optional (Default public)
+sources:                        # Pflicht, ≥1; strukturiert — Dedup- und Attributions-Anker
+  - key: A                      # Kürzel für Body-Attribution ([A] 3:38)
+    id: "yt:exampleVid1"        # kanonische ID: "yt:<video_id>" | "url:<normalisierte-url>" | "sha1:<hash>" (Fallback)
+    path: "raw/Wiki/Clippings/Example Source A.md"
+    author: "Dr. Jane Doe"     # Klartext, KEIN [[Wikilink]] (raw/ ist kein Wiki)
+    tier: 3                     # 1–5, Skala unten; Default bei Extraktions-Unsicherheit: 5
+    published: 2024-03-01       # optional (fehlt oft)
+related: []                     # inkl. Links auf human-owned Seiten (§3.10) — lesen ja, schreiben nie
+---
+```
+
+**Bewusst NICHT im Frontmatter:** ein globales `confidence`-Feld (eine Seite hat hohe *und* niedrige Claims — Konfidenz steht pro Claim im Body); `independent_source_count` als persistiertes Feld (ableitbar aus `sources[].author`-Distinktheit — Redundanz wäre Drift-Quelle); die Claims selbst als YAML (die Seite ist zum Lesen da, Maschinenlesbarkeit liefert die Body-Grammatik).
+
+**Body-Grammatik `mode: claims`** (menschenlesbar + regex-parsebar, strikte Zeilen-Grammatik):
+
+```markdown
+# <Thema>
+
+## Konsens
+- **Claim:** <atomare, dekontextualisierte Behauptung> | **Quellen:** [A 3:38], [C 6:05] | **Konfidenz:** hoch
+## Dissens
+- **<Streitfrage>.**
+  - **[A] sagt:** … (Beleg-Stelle)
+  - **[B] sagt:** … (Beleg-Stelle)
+  - **Einordnung:** … (inkl. Verweis auf Nutzer-Position, falls eine human-owned Seite eine hat)
+## Einzelbefunde
+- <Behauptung> | [B 9:06]
+## why_relevant
+> 2–3 Sätze, Verlinkung auf Nutzer-Ziele ([[…]]-Links auf human-owned Seiten erlaubt — lesen ja, schreiben nie).
+```
+
+**Body-Grammatik `mode: digest`:** `## Kernaussagen` (mit Quellen-Kürzel, ohne Konfidenz-Zwang) / `## Primärquelle vs. Rezeption` / `## Einordnung` / `## why_relevant`. Taxonomien/Listen sind hier legitimer Inhalt.
+
+**Regeln beider Modi:**
+- **Beleg-Stelle ist Pflicht pro Claim** (Timestamp `MM:SS` bei Transkripten, Abschnitts-Titel bei Artikeln). Claim ohne Beleg-Stelle = Abstain — der Extraktions-Prompt verwirft ihn, der Lint flaggt ihn, falls doch einer durchrutscht.
+- Body referenziert Quellen nur per `[<key> <Beleg-Stelle>]`. **Kein `[[wikilink]]` auf `raw/`-Dateien** und **keine URLs im Body** (stehen im Clip-Frontmatter).
+- `## Dissens` in `mode: claims`-Seiten ist **gesunder First-Class-Inhalt**, kein Widerspruchs-Symptom im Sinne von §8. Flag-pflichtig ist nur ein Widerspruch TopicPage ↔ human-owned Seite (Nutzer entscheidet).
+- **Pflicht-Disclaimer** für `mode: claims` + `domain: health` — erste Body-Zeile unter der `# <Thema>`-Überschrift (ENT-061):
+  ```markdown
+  > Aggregiertes Fremdwissen, keine medizinische Beratung. Quellen-Tier ≠ ärztliche Empfehlung.
+  ```
+
+**Quellen-Tier-Skala (Verfassungstext, ENT-060):**
+
+| Tier | Bedeutung |
+|---|---|
+| 1 | Primärquelle / zitierte Studie |
+| 2 | Facharzt / Evidenz-Podcast |
+| 3 | Arzt-Influencer mit Verkaufsfunnel |
+| 4 | Anekdote n=1 |
+| 5 | Aggregator / unbekannt |
+
+**Default bei Extraktions-Unsicherheit: tier 5** (konservativ).
+
+**Konfidenz-Ableitungsregel (Verfassungstext, ENT-060 — deterministisch, nie roh gezählt):**
+
+- **Unabhängigkeit** = Zahl distinkter Autoren, ermittelt per Fuzzy-Match (`SequenceMatcher ≥ 0,85` — „Dr. Jane Doe DC" ≈ „Dr. Doe" = ein Autor), nicht String-Gleichheit.
+- `hoch` = ≥2 unabhängige Autoren, davon ≥1 mit tier ≤2
+- `mittel` = mehrere Quellen desselben Autors ODER genau 1 Quelle mit tier ≤2
+- `niedrig` = nur tier ≥3 oder mechanistisch unbelegt
+
+Die **Tier-Basis steht sichtbar in jeder Konfidenz-Zeile** im Body (z.B. `**Konfidenz:** mittel (3 Quellen, 1 Autor, tier 3)`). Der Scheinkonsens-Fall (3 Quellen = 1 Autor) ist damit per Definition `mittel`, nie `hoch`.
+
+### 3.10 Human-owned Typen-Familie (`HealthProtocol`, `HealthReview`, `DeepResearchPrompt`)
+> Seiten der human-owned Zone `wiki/personal/health/` (§2, ENT-062). Sie sind **nicht KI-geschrieben** und brauchen daher kein Voll-Schema und keine Agenten-Spezifikation — nur Index-Fähigkeit. **Pflichtfelder:** `type` (einer der drei Familien-Typen), `created`, `owner: human`. Alles Weitere (Status, Tags, Related, Struktur des Bodys) liegt in der Hand des Nutzers. `rebuild_index.py` führt sie in der Sektion `Human-Owned (health)` — damit sind sie graph_context-sichtbar (lesen ja, schreiben nie).
+
 ---
 
 ## 4. Dateinamen-Konventionen
@@ -245,6 +341,7 @@ Append-only. Format: `## [YYYY-MM-DDTHH:MM] operation | Kurzbeschreibung`
 | Concept        | `con_`  | `con_kebab-concept.md`               | `con_storytelling-struktur.md`        |
 | RawEvent       | —       | `YYYY-MM-DDTHH-MM-SS_source.json`    | `2026-04-18T09-32-11_telegram.json`   |
 | StyleProfile   | `sp_`   | `sp_[name].md`                       | `sp_chappelle.md`, `sp_ted-talk.md`   |
+| TopicPage      | `tp_`   | `tp_[domain]_kebab-topic.md` (Ablage `wiki/topics/`) | `tp_health_sauna.md`, `tp_tech_karpathy-llm-wiki.md` |
 
 ---
 

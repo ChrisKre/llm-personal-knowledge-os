@@ -143,6 +143,7 @@ Was fehlt: Ton-Coaching auf Basis der echten Stimme.
 ### Korrektur bestehender Einträge
 
 - **BL-01 (`graph_writer.py`-Branch-Bug `main`→`master`) ist erledigt** — S026, commit `e4d2f28`; `reject_draft()` nutzt `master`. In `workshop_02/02_architect.md §B5/§D2` fälschlich als offene Pre-Req geführt — in künftigen Briefs nicht mehr einplanen.
+- **Die zweite neue Schuld (Index-Blindheit TopicPage/Health-Typen) ist seit S031 erledigt** (BL-14+BL-15): `SECTION_SPECS` kennt `TopicPages` + `Human-Owned (health)`, `graph_reader` beide Mappings; 14 Health-Seiten tragen `owner: human` und sind index-/graph_context-sichtbar. Rest-Lücke: `antwort_deepresearch.md` (kein Frontmatter — PO-Entscheid ausstehend, siehe sessions/031).
 - Der Alt-Eintrag „graph_reader Phase 2 (SQLite) ungetestet — Risiko bei > 30 Seiten" (Tabelle oben) ist präzisiert: die 30 sind **bereits überschritten** (37), das System läuft im Fallback — siehe erste neue Schuld.
 
 ### Notiz
