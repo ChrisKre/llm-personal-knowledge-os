@@ -28,6 +28,7 @@
 | Render-Layer / Persistenz (Workshop S025) | ENT-054 |
 | Schema-Erweiterungen (Workshop S025) | ENT-055 |
 | Workflow-Revisionen (Workshop S025) | ENT-056 (revidiert ENT-007) |
+| Fremdwissen-Ingestion (Workshop 02, S030) | ENT-057, ENT-058, ENT-059 (revidiert ENT-056 partiell), ENT-060, ENT-061, ENT-062 |
 | Offene Entscheidungen | ENT-039 |
 
 ---
@@ -543,4 +544,68 @@
      - C8 User-Profile Self-Refresh (BL-10) — Achtung: nutzt Sonnet, **aber Append-Diff statt Overwrite** und ohne Halluzinations-anfälligen Multi-Wiki-Write-Pfad. Grenz-Fall, in der Pause akzeptabel weil Append-Diff + interner Lint-Pass.
 - **Begründung:** [ENT-007](#ent-007-draft--master-git-workflow-für-llm-writes) ist seit MVP-1 in der Code-Realität dormant ([Workshop 01 §A2(b) L11](../workshop/01_ai_research.md)). Re-Aktivierung würde bedeuten, **alle bestehenden Direct-Writes** (Anki-Patch, künftige Lint-Fixes, Migrationen) in den Draft-Pfad zu zwingen — deutlich mehr Aufwand als ein formaler Pause-Beschluss. **Vertrags-Stabilität ist wichtiger als Vertrags-Reinheit** — eine stillschweigende Dormanz ist schlechter als eine dokumentierte Pause mit Re-Aktivierungs-Trigger. QM-Empfehlung [04 §C1 QK-13](../workshop/04_qm.md) wurde übernommen. Architekt-Befund [03 §D5](../workshop/03_architect.md) wurde übernommen.
 - **Auswirkung:** ENT-007 bleibt formal gültig, aber sein **Status** wird durch ENT-056 als "pausiert" markiert. Künftige Engineer/PO-Sessions referenzieren ENT-007 mit dem Verweis auf ENT-056. Wenn LLM-Lint-Fixes (post-MVP-3) dazukommen, ist die Re-Aktivierung ein eigener ENT-Vorgang. Aktualisierung in [hinweise/technischer_hinweis.md](../hinweise/technischer_hinweis.md): Eintrag "graph_writer Direct-Master-Schreibe" wird **nicht** als Schuld geführt (war es nie offiziell), aber der Branch-Bug-Fix (BL-01) wird als Schuld eingetragen + behoben.
-- **Status:** final (Status-Update zu ENT-007 für MVP-2-Zweitwelle/MVP-3-Vorbereitung). Re-Aktivierung erfordert separaten ENT.
+- **Status:** final (Status-Update zu ENT-007 für MVP-2-Zweitwelle/MVP-3-Vorbereitung). Re-Aktivierung erfordert separaten ENT. **→ Re-Aktivierung für `source_ingest`-Writes erfolgt in [ENT-059](#ent-059-draftmaster-reaktivierung-für-source_ingest-writes-revidiert-ent-056-partiell) (S030).**
+
+---
+
+## Session 030 — Workshop 02: Fremdwissen-Ingestion (2026-07-04)
+> Sechs ENT-Einträge aus Workshop-02-Phase 4 (PO-Synthese). Quelle: [workshop_02/04_po_synthesis.md](../workshop_02/04_po_synthesis.md), ENT-Bedarfs-Liste in [workshop_02/03_qm.md](../workshop_02/03_qm.md). Charta: [workshop_02/README.md](../workshop_02/README.md).
+
+### [ENT-057] Neuer Entitätstyp `TopicPage` für Fremdwissen (SCHEMA §3.9)
+- **Entschieden:** 2026-07-04 (Session 030, Workshop-02-Phase 4, PO-Beschluss)
+- **Entscheidung:** Aggregiertes Fremdwissen (destilliert aus externen Quellen in `raw/`) bekommt einen eigenen Entitätstyp **`TopicPage`** — keine Erweiterung von `Concept`:
+  1. **Prefix/Ablage:** `tp_`, Dateiname `tp_[domain]_kebab-topic.md`, Verzeichnis `wiki/topics/` (neu, top-level — Fremdwissen ist nicht der Nutzer, gehört nicht unter `personal/`).
+  2. **`mode: claims | digest`** als domänen-abhängiger Degrade: `claims` = Konsens/Dissens/Einzelbefunde/why_relevant (empirisches Wissen); `digest` = Kernaussagen/Primärquelle-vs-Rezeption/Einordnung/why_relevant (Design-/Definitions-Wissen — löst den Karpathy-Pilot-Schema-Bruch im Typ, ohne Zweit-Typ).
+  3. **`sources[]` strukturiert** (Pflicht, ≥1): `key` (Body-Attribution), `id` (kanonische Quell-ID: `yt:<video_id>` | `url:` | `sha1:` — Dedup-Anker), `path`, `author` (Klartext, kein `[[Wikilink]]`), `tier` (1–5, ENT-060), optional `published`.
+  4. **Claims leben im Body** in strikter, regex-parsebarer Zeilen-Grammatik ([workshop_02/02_architect.md §A4](../workshop_02/02_architect.md)); **kein globales `confidence`-Frontmatter** (eine Seite hat hohe und niedrige Claims); Beleg-Stelle pro Claim Pflicht (Abstain-Regel).
+  5. **Entsteht per Ingestion, nie emergent** — Abgrenzung zu `Concept` (ENT-010 unberührt). Clips, die das eigene System beschreiben, werden als `system_reference` klassifiziert und **nicht** destilliert (Ledger `skipped` + Report-Vorschlag für `doc/`-Verweis).
+- **Begründung:** Lebenszyklus-Trennung schlägt Feldökonomie — eine Concept-Erweiterung hätte zwei unvereinbare Entstehungspfade in einem Typ gemischt und jede künftige Concept-Logik (Lint, Korrelation, Synthese) mit `if sources:`-Verzweigungen belastet. Der Pilot ([workshop_02/pilot/](../workshop_02/pilot/)) belegt Struktur und Grenzen. Typen sind im Karpathy-Muster billig, Vermischung ist teuer.
+- **Auswirkung:** SCHEMA §3.9 + §4-Zeile, `rebuild_index.py`-Sektion, `graph_reader`-Mappings — Umsetzung **BL-14** (Index-Aufnahme ist Batch-kritisch, QM R9: Pre-Req vor Batch, nicht „begleitend"). Kein Supervisor-Umbau.
+- **Status:** beschlossen, Umsetzung ausstehend (BL-14, Session 031)
+
+### [ENT-058] Input-Kanal: `raw/Wiki/Clippings/` als registrierter Source-Mount (Option K2)
+- **Entschieden:** 2026-07-04 (Session 030, Workshop-02-Phase 4, PO-Beschluss)
+- **Entscheidung:** `raw/Wiki/Clippings/` bleibt physisch, wo es ist, und wird als **Source-Mount** der Ingestion registriert: konfigurierte Liste `SOURCE_DIRS = ["raw/sources/", "raw/Wiki/Clippings/"]` + eine Mount-Zeile in SCHEMA §2. Kein Datei-Umzug, keine Web-Clipper-Rekonfiguration. **Extractor-Pflichten als Vertrag:** (a) `source`-URL → kanonische ID (YouTube-Video-ID, `&t=`-Fragmente strippen), (b) No-Frontmatter-Fallback (Titel aus Dateiname, `sha1:`-Content-Hash-ID), (c) Format-Weiche `.md`/`.html`, (d) Leer-Clip-Filter (<150 Wörter → `skipped: empty_clip`), (e) `tags: [clippings]` ignorieren, (f) **Ist-Clip-Check** (QM R12: `source:`-URL oder ableitbare ID, sonst `skipped: not_a_clipping`). **Bestand per Einmal-Batch** (eigenes Skript, korpusweite Dedup/Clusterung), **laufende Ingestion über die reguläre Pipeline** (täglicher Scheduled-Scan + manueller Trigger; kein zweiter dauerhafter Codepfad).
+- **Begründung:** Die Fehlerursache des toten Kanals war „Clipper schreibt woandershin, als die Pipeline liest" — K2 macht die Pipeline zur anpassungsfähigen Seite (konfiguriert statt hart verdrahtet). K1 hätte Vault-Müll in `raw/Wiki/` mitgeadelt, K3 hätte die Ursache reproduziert (geräte-lokale Clipper-Konfiguration vergisst sich). Rohdaten-Axiom bleibt gewahrt.
+- **Auswirkung:** Umsetzung **BL-16** (Batch Stufe 0, $0) + **BL-19** (laufender Betrieb). SCHEMA-§2-Zeile mit BL-16.
+- **Status:** beschlossen, Umsetzung ausstehend (BL-16, Session 032)
+
+### [ENT-059] Draft→Master-Reaktivierung für `source_ingest`-Writes (revidiert ENT-056 partiell)
+- **Entschieden:** 2026-07-04 (Session 030, Workshop-02-Phase 4, PO-Beschluss)
+- **Revidiert:** [ENT-056](#ent-056-draftmaster-workflow-formal-pausiert-für-mvp-2-zweitwelle-revidiert-ent-007) — partiell, exakt gemäß dessen §3-Re-Aktivierungs-Trigger.
+- **Entscheidung:** Der Draft→Master-Workflow (ENT-007) wird für alle **`source_ingest`-Writes** (Clippings-Batch + laufende TopicPage-Ingestion) **reaktiviert**: Batch und topic_agent schreiben WikiWrite-Objekte via `graph_writer.execute_writes()` auf `draft`; Review = Obsidian-Lektüre (Batch: 12–15 Seiten Lese-Pass, gewollt) bzw. Telegram-Freigabe (laufend); Merge via `approve_draft()`. **Stufe 5 des Batches ist atomar** (QM QK-17a): alle Seiten eines Laufs als Transaktion, Ledger-Commit erst nach dem letzten Write — verhindert stillen Seiten-Verlust bei Multi-Topic-Teilabbruch (R4). Die ENT-056-§4-Liste deterministischer Direct-Master-Writes (anki_id-Patch, Migrationen, Lint-Detektoren etc.) **bleibt unverändert gültig** — die Pause endet nur für den `source_ingest`-Pfad.
+- **Begründung:** ENT-056 §3 wörtlich: „Sobald LLM-getriggerte Wiki-Writes mit Halluzinations-Risiko dazukommen … Erste solche Wiki-Schreibe ist der Re-Aktivierungs-Trigger." Ein Sonnet-Freitext-Merge, der Gesundheits-Themen-Seiten erzeugt, ist dieser Fall — Architekt-Lesart ([02 §B5](../workshop_02/02_architect.md)), von QM bestätigt ([03 §R8-Kommentar](../workshop_02/03_qm.md)). Direct-Master wäre nur für deterministische Nicht-LLM-Writes legitim. **Pre-Req-Korrektur:** BL-01 (Branch-Bug) ist seit S026 gefixt (commit `e4d2f28`) — die Reaktivierung hat keine offene Code-Voraussetzung.
+- **Auswirkung:** Umsetzung **BL-17** (Batch Stufe 5) + **BL-19** (laufend). `reject_draft`/`approve_draft` werden erstmals produktiv genutzt.
+- **Status:** beschlossen, Umsetzung ausstehend (BL-17, Session 033+)
+
+### [ENT-060] Konfidenz-Ableitungsregel + Quellen-Tier-Skala (SCHEMA-Verfassungstext)
+- **Entschieden:** 2026-07-04 (Session 030, Workshop-02-Phase 4, PO-Beschluss)
+- **Entscheidung:** Glaubwürdigkeit wird über **zwei getrennte Achsen** modelliert:
+  1. **`source_tier` 1–5** pro Quelle im Frontmatter (1 = Primärquelle/zitierte Studie, 2 = Facharzt/Evidenz-Podcast, 3 = Arzt-Influencer mit Verkaufsfunnel, 4 = Anekdote n=1, 5 = Aggregator/unbekannt). **Default bei Extraktions-Unsicherheit: 5** (konservativ).
+  2. **`independent_source_count`** = Zahl **distinkter Autoren**, ermittelt per Fuzzy-Match (`SequenceMatcher ≥ 0,85` — „Dr. Jane Doe DC" ≈ „Dr. Doe" = ein Autor), nicht String-Gleichheit; nicht persistiert (ableitbar aus `sources[].author`, Redundanz wäre Drift-Quelle).
+  3. **Konfidenz pro Claim, dreistufig abgeleitet, nie roh gezählt:** `hoch` = ≥2 unabhängige Autoren, davon ≥1 mit tier ≤2 · `mittel` = mehrere Quellen desselben Autors ODER genau 1 Quelle tier ≤2 · `niedrig` = nur tier ≥3 oder mechanistisch unbelegt. Die Tier-Basis steht **sichtbar in jeder Konfidenz-Zeile** im Body (QM-Auflage 2).
+- **Begründung:** Der Ein-Autor-Pilot beweist den Scheinkonsens (3 Quellen = 1 Autor); die Regel deckelt ihn per Definition auf `mittel`. Die QM-Härtung (R11) schließt die Hintertür der Autor-String-Varianz. Deterministisch, Pure-Function-testbar, kein LLM-Ermessen in der Ableitung.
+- **Auswirkung:** Regel + Skala werden als Verfassungstext in SCHEMA §3.9 dokumentiert (**BL-14**); Adversarial-Autor-Fixture Pflicht (**BL-17**, QK-21c).
+- **Status:** beschlossen, Umsetzung ausstehend (BL-14/BL-17)
+
+### [ENT-061] Sensitivity-Einstufung für `domain: health`-TopicPages
+- **Entschieden:** 2026-07-04 (Session 030, Workshop-02-Phase 4, PO-Beschluss)
+- **Entscheidung:**
+  1. `domain: health`-TopicPages tragen **`sensitivity: sensitive`** als Frontmatter-Default (Erweiterung des ENT-006-Modells auf aggregierende Seiten; SCHEMA §6.3 war PersonalFact-zentriert).
+  2. **Pipeline-Zuordnung:** Extraktion aus reinem Fremdtext = `public`/Haiku; jeder Merge-/`why_relevant`-Schritt mit human-owned Health-Kontext = `sensitive`/Sonnet, und der Prompt injiziert **nur die minimal nötigen Protokoll-Fakten, nie ganze human-owned Seiten** (Auflage, nicht Empfehlung).
+  3. **Pflicht-Disclaimer** im `mode: claims`+`domain: health`-Template: „Aggregiertes Fremdwissen, keine medizinische Beratung. Quellen-Tier ≠ ärztliche Empfehlung." (QM R2).
+  4. **Bewusste Freigabe:** Der PO entscheidet, dass Health-*Kontext* (Protokoll-Fakten wie Messwerte, Dosierungen) unter den Auflagen 1–3 in Cloud-Prompts fließen darf. Begründung: ENT-006 routet `sensitive` seit jeher auf Cloud-Sonnet; Protokoll und Clippings liegen bereits im Repo und laufen durch Cloud-Sessions; `private`/Ollama scheitert an der Merge-Qualität (analog ENT-053 §5). Der Zusatz-Exposure ist marginal, der Nutzwert (personalisierte `why_relevant`, Widerspruchs-Flags gegen das eigene Protokoll) ist der Kern des Workshops. **Veto-Fenster: Der Nutzer kann diese Freigabe vor dem ersten Health-Merge (S033+) revidieren** — ein Veto kostet nur die `why_relevant`-Personalisierung, nicht den Batch.
+- **Begründung:** QM R3/QK-16 — PII-Scrubbing entfernt Namen, nicht den Gesundheitszustand; die Themen-Auswahl (30 Gesundheits-Clips) ist selbst ein Profil-Signal. Ohne expliziten ENT wäre der erste Batch-Merge ein leiser ENT-006-Grenzgang gewesen.
+- **Auswirkung:** Umsetzung **BL-17** (Merge-Vertrag + Disclaimer + Frontmatter-Default). Pre-Req des ersten Health-Merges (QM-Auflage 3).
+- **Status:** beschlossen, Umsetzung ausstehend (BL-17); Freigabe-Punkt 4 durch Nutzer revidierbar bis S033
+
+### [ENT-062] Axiom-2-Carve-out: human-owned Zonen im Wiki
+- **Entschieden:** 2026-07-04 (Session 030, Workshop-02-Phase 4, PO-Beschluss)
+- **Entscheidung:** Axiom 2 (SCHEMA.md §1: „Der Graph gehört der KI") wird **präzisiert**: Es gilt für den Graphen **außerhalb deklarierter human-owned Zonen**. Erste Zone: `wiki/personal/health/`.
+  1. **Doppel-Kennzeichnung:** Verzeichnis-Deklaration in SCHEMA §2 (Enforcement) + `owner: human`-Frontmatter pro Seite (Portabilität, Obsidian-sichtbar, Lint-filterbar). Konsistenz-Check „Zone ⊄ owner-Flags" als Lint-Detektor.
+  2. **Enforcement:** deterministischer Guard in `graph_writer.execute_writes()` (Write-Pfad in Zone → harte Exception) — und dieselbe Zonen-Prüfung als **geteilte Funktion vor jedem Datei-Write**, damit auch BL-07-Lint-Auto-Fixes sie nicht umgehen (QM R10/QK-19).
+  3. **Typen-Legalisierung:** `HealthProtocol`/`HealthReview`/`DeepResearchPrompt` werden als human-owned Typen-Familie in SCHEMA §3 registriert (Sammel-Absatz; Pflichtfelder `type`, `created`, `owner: human`) und in den Index aufgenommen — beendet die Index-Blindheit der 14 Health-Seiten (Architekt-Befund [02 §Teil C](../workshop_02/02_architect.md)).
+  4. **KI-Verhältnis zur Zone:** lesen ja (graph_context), flaggen ja (Widerspruch TopicPage↔Protokoll → §8-Telegram-Frage, Nutzer entscheidet), schreiben/auto-fixen **nie**. Ownership-Wechsel ist ein bewusster Akt des Nutzers (Flag entfernen / Seite verschieben).
+- **Begründung:** C-2 ist die einzige Option, die den realen Workflow (Mensch entscheidet, KI liefert die Evidenzbasis daneben) verfassungsfest macht, statt ihn zu bekämpfen (C-1 Migration mitten im laufenden Human-owned-Betrieb) oder die Verfassung zu schleifen (C-3 Ko-Autorschaft entwertete den WikiWrite-Vertrag). Zugleich Voraussetzung des Workshop-Kern-Mehrwerts: `why_relevant` und Widerspruchs-Flags funktionieren nur, wenn die KI das Protokoll lesen kann. **ENT-Form:** Axiom 2 hatte nie eine eigene ENT-Nummer — dies ist der erste ENT dazu (Präzisierung, kein `revidiert:`-Verweis; ENT-002 ist nicht berührt).
+- **Auswirkung:** Umsetzung **BL-15** (SCHEMA-Edits + owner-Patch + Guard + Index-Sektion + Tests); Lint-Regeln in **BL-18**.
+- **Status:** beschlossen, Umsetzung ausstehend (BL-15, Session 031)

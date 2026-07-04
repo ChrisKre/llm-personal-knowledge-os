@@ -128,6 +128,29 @@ Was fehlt: Ton-Coaching auf Basis der echten Stimme.
 
 ---
 
+## 8. Vom Workshop 02 aufgedeckte Schulden (Stand 2026-07-04)
+
+> Quelle: [workshop_02/03_qm.md §Aktualisierungs-Vorschlag](../workshop_02/03_qm.md), vom PO in S030-Phase 4 (Synthese) übernommen. Backlog: [workshop_02/backlog.md](../workshop_02/backlog.md).
+
+### Neue Schulden (vom Workshop-02-QM aufgedeckt, Code-verifiziert)
+
+| Schuld | Auswirkung | Backlog-Bezug |
+|---|---|---|
+| **FTS5-Switch bereits scharf, läuft auf `index.md`-Fallback** — `_wiki_size()` (`graph_reader.py:268`) zählt 37 Dateien > `WIKI_PAGE_THRESHOLD=30`; `search_wiki` routet bereits in `_search_sqlite`, das mangels `wiki_index.db` auf `_search_index_md` zurückfällt. Der echte FTS5-Query-Körper (`graph_reader.py:219-254`) ist ungetestet und aktiviert sich beim ersten DB-Bau. | Beim BL-09-Lauf endet der Fallback — ungetesteter Pfad wird live. **BL-09 ist Pflicht-Pre-Req des laufenden Ingestion-Betriebs (BL-19), nicht des Batches**; liefert mit Test gegen echte DB + TopicPage-/Health-Zeilen. | BL-09 (Scope erweitert, QK-22) |
+| **`rebuild_index.SECTION_SPECS` kennt weder TopicPage noch die Health-Ad-hoc-Typen** (`HealthProtocol`/`HealthReview`/`DeepResearchPrompt`) — 15 Health-Seiten sind heute index-/graph_context-blind. | TopicPage-Aufnahme ist Batch-Merge-**kritisch** (R9): ohne sie findet `search_wiki(page_type="TopicPage")` nichts und der laufende Betrieb legt stumm Duplikate an. | **BL-14 + BL-15** — Schema-Schritt **vor** Batch (QM-Auflage 5) |
+| **Idempotenz-Lücke der geplanten Batch-Ingestion** — Ledger auf Clip-Granularität kann bei Multi-Topic-Teilabbruch Themen-Seiten still verlieren (R4). | Stiller Datenverlust ohne Fehler; Lehre S029 (Repair-Pfad nicht fixpunkt-stabil). | **BL-17** (Stufe 5 atomar, QK-17a + Teilabbruch-Testfall) |
+
+### Korrektur bestehender Einträge
+
+- **BL-01 (`graph_writer.py`-Branch-Bug `main`→`master`) ist erledigt** — S026, commit `e4d2f28`; `reject_draft()` nutzt `master`. In `workshop_02/02_architect.md §B5/§D2` fälschlich als offene Pre-Req geführt — in künftigen Briefs nicht mehr einplanen.
+- Der Alt-Eintrag „graph_reader Phase 2 (SQLite) ungetestet — Risiko bei > 30 Seiten" (Tabelle oben) ist präzisiert: die 30 sind **bereits überschritten** (37), das System läuft im Fallback — siehe erste neue Schuld.
+
+### Notiz
+
+- Der Draft→Master-Workflow (ENT-007/056) ist für die Clippings-Ingestion **reaktiviert**: der Sonnet-Freitext-Merge zu Gesundheitsthemen ist der ENT-056-§3-Trigger — Beschluss **ENT-059** (S030, revidiert ENT-056 partiell). Die §4-Liste deterministischer Direct-Master-Writes bleibt gültig.
+
+---
+
 ## 6. Kostenmessung — API-Verbrauch (Stand Session 017)
 
 `_call_claude()` in `agents/base_agent.py` loggt Token-Verbrauch und Kosten nach jedem LLM-Call.
