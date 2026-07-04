@@ -49,6 +49,8 @@ knowledge-os/
 └── log.md                      # [LLM-MAINTAINED] Append-only Operationslog
 ```
 
+**Source-Mounts der Ingestion ([ENT-058](ENTSCHEIDUNGEN.md#ent-058-input-kanal-rawwikiclippings-als-registrierter-source-mount-option-k2)):** Die Ingestion liest die konfigurierte Liste `SOURCE_DIRS = ["raw/sources/", "raw/Wiki/Clippings/"]` (definiert in `scripts/ingest/`) — `raw/Wiki/Clippings/` (Obsidian-Web-Clipper-Bestand) ist damit registrierter Source-Mount: Konfigurations-Liste, kein Datei-Umzug, keine Clipper-Rekonfiguration. Der Rest von `raw/Wiki/` (Vault-Artefakte) bleibt außen vor.
+
 ### Human-owned Zonen (Axiom-2-Carve-out, ENT-062)
 
 Deklarierte Verzeichnisse, in denen **nur der Mensch** schreibt. Axiom 2 gilt außerhalb dieser Zonen uneingeschränkt.
