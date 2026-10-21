@@ -23,6 +23,8 @@ from dotenv import load_dotenv
 
 load_dotenv(REPO_ROOT / ".env")
 
+from agents.config import VAULT_ROOT  # noqa: E402
+
 
 SAMPLES = [
     ("de_short",
@@ -66,7 +68,7 @@ def _run_extract(path: Path) -> tuple[float, object]:
     """Run audio_extractor on path, return (latency_seconds, ExtractedContent)."""
     from agents.extractors.audio_extractor import extract_audio
     t0 = time.perf_counter()
-    extracted = extract_audio(path, user_hint="", wiki_root=REPO_ROOT)
+    extracted = extract_audio(path, user_hint="", wiki_root=VAULT_ROOT)
     t1 = time.perf_counter()
     return (t1 - t0), extracted
 
@@ -84,7 +86,7 @@ def _run_pipeline(extracted, write: bool) -> dict:
         _mw._update_index = lambda s, wiki_root=None: None
 
     from main_workflow import run_ingest
-    raw_event = extracted.to_raw_event(REPO_ROOT)
+    raw_event = extracted.to_raw_event(VAULT_ROOT)
     return run_ingest(raw_event)
 
 
@@ -105,7 +107,7 @@ def main() -> None:
             sys.exit(f"Not a file: {path}")
         targets = [(path.stem, path, "?")]
     else:
-        sample_dir = REPO_ROOT / "raw" / "assets" / "_test_voice"
+        sample_dir = VAULT_ROOT / "raw" / "assets" / "_test_voice"
         targets = _generate_samples(sample_dir)
 
     for name, path, expected_lang in targets:

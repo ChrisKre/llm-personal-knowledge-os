@@ -30,8 +30,6 @@ from agents.graph_writer import WikiWrite, execute_writes  # noqa: E402
 from agents.language_agent import LanguageAgent  # noqa: E402
 from agents.supervisor import Supervisor  # noqa: E402
 
-WIKI_ROOT = Path(__file__).parent
-
 
 # ---------------------------------------------------------------------------
 # State
@@ -80,7 +78,7 @@ def _load_graph_index(wiki_root: Path) -> str:
     return index_path.read_text(encoding="utf-8")[:4000]
 
 
-def _update_index(state: SupervisorState, wiki_root: Path = WIKI_ROOT) -> SupervisorState:  # noqa: C901
+def _update_index(state: SupervisorState, wiki_root: Path = VAULT_ROOT) -> SupervisorState:  # noqa: C901
     """Append newly written pages to index.md after graph writes."""
     writes = state.get("wiki_writes", [])
     if not writes:
@@ -192,7 +190,7 @@ def _extract_summary_from_write(write: WikiWrite) -> str:
 # Graph construction
 # ---------------------------------------------------------------------------
 
-def build_workflow(wiki_root: Path = WIKI_ROOT):
+def build_workflow(wiki_root: Path = VAULT_ROOT):
     """Build and compile the LangGraph workflow. Call once at startup.
 
     Provider selection (automatic):
@@ -270,14 +268,14 @@ def build_workflow(wiki_root: Path = WIKI_ROOT):
 _graph = None
 
 
-def _get_graph(wiki_root: Path = WIKI_ROOT):
+def _get_graph(wiki_root: Path = VAULT_ROOT):
     global _graph
     if _graph is None:
         _graph = build_workflow(wiki_root)
     return _graph
 
 
-def run_ingest(raw_event: dict, wiki_root: Path = WIKI_ROOT) -> dict:
+def run_ingest(raw_event: dict, wiki_root: Path = VAULT_ROOT) -> dict:
     """Process a single raw event through the full agent pipeline.
 
     Args:

@@ -12,9 +12,8 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 from agents.base_agent import BaseAgent
+from agents.config import VAULT_ROOT
 from agents.graph_writer import WikiWrite
-
-WIKI_ROOT = Path(__file__).parent.parent
 
 STALE_RAW_DAYS = 7
 HIGH_SCORE_UNEXERCISED_DAYS = 14
@@ -42,7 +41,7 @@ class LintAgent(BaseAgent):
 
     def process(self, state: dict) -> dict:
         """LangGraph node entry point — runs full lint pass."""
-        wiki_root = Path(state.get("wiki_root", WIKI_ROOT))
+        wiki_root = Path(state.get("wiki_root", VAULT_ROOT))
         report = self.run_lint(wiki_root)
 
         auto_fix_writes = self._apply_auto_fixes(report.auto_fixable, wiki_root)

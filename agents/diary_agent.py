@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from pathlib import Path
 from textwrap import dedent
 from typing import TypedDict
 
@@ -17,7 +16,6 @@ from langgraph.graph import END, StateGraph
 from agents.base_agent import BaseAgent
 from agents.graph_writer import WikiWrite
 
-WIKI_ROOT = Path(__file__).parent.parent
 TAG_OVERLAP_THRESHOLD = 2
 CONCEPT_THRESHOLD = 3
 

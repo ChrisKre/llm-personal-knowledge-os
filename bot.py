@@ -43,11 +43,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-WIKI_ROOT = Path(__file__).parent
-
 _api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 _client = anthropic.Anthropic(api_key=_api_key) if _api_key else None
-_extractor = Extractor(wiki_root=WIKI_ROOT, anthropic_client=_client)
+_extractor = Extractor(wiki_root=VAULT_ROOT, anthropic_client=_client)
 if _client is None:
     logger.info("Kein ANTHROPIC_API_KEY — Ollama-Fallback aktiv.")
 
@@ -204,8 +202,8 @@ async def _process_and_reply(update: Update, context, content, user_hint: str = 
     """Extract → save raw event → run workflow → reply with result."""
     try:
         extracted = _extractor.extract(content, user_hint=user_hint)
-        extracted.save_event(WIKI_ROOT)
-        raw_event = extracted.to_raw_event(WIKI_ROOT)
+        extracted.save_event(VAULT_ROOT)
+        raw_event = extracted.to_raw_event(VAULT_ROOT)
         context.user_data["last_raw_event"] = raw_event
 
         await update.message.reply_text("⏳ Verarbeite...")
@@ -260,7 +258,7 @@ async def handle_text(update: Update, context) -> None:
 @_require_allowed_user
 async def handle_voice(update: Update, context) -> None:
     voice = update.message.voice
-    dest = WIKI_ROOT / "raw" / "assets" / f"{voice.file_unique_id}.ogg"
+    dest = VAULT_ROOT / "raw" / "assets" / f"{voice.file_unique_id}.ogg"
     await _download_file(context, voice.file_id, dest)
     await _process_and_reply(update, context, dest, user_hint=update.message.caption or "")
 
@@ -268,7 +266,7 @@ async def handle_voice(update: Update, context) -> None:
 @_require_allowed_user
 async def handle_photo(update: Update, context) -> None:
     photo = update.message.photo[-1]   # largest resolution
-    dest = WIKI_ROOT / "raw" / "assets" / f"{photo.file_unique_id}.jpg"
+    dest = VAULT_ROOT / "raw" / "assets" / f"{photo.file_unique_id}.jpg"
     await _download_file(context, photo.file_id, dest)
     await _process_and_reply(update, context, dest, user_hint=update.message.caption or "")
 
@@ -277,7 +275,7 @@ async def handle_photo(update: Update, context) -> None:
 async def handle_document(update: Update, context) -> None:
     doc  = update.message.document
     name = doc.file_name or f"{doc.file_unique_id}.bin"
-    dest = WIKI_ROOT / "raw" / "sources" / name
+    dest = VAULT_ROOT / "raw" / "sources" / name
     await _download_file(context, doc.file_id, dest)
     await _process_and_reply(update, context, dest, user_hint=update.message.caption or "")
 
@@ -285,7 +283,7 @@ async def handle_document(update: Update, context) -> None:
 @_require_allowed_user
 async def handle_video(update: Update, context) -> None:
     video = update.message.video or update.message.video_note
-    dest  = WIKI_ROOT / "raw" / "assets" / f"{video.file_unique_id}.mp4"
+    dest  = VAULT_ROOT / "raw" / "assets" / f"{video.file_unique_id}.mp4"
     await _download_file(context, video.file_id, dest)
     await _process_and_reply(update, context, dest, user_hint=update.message.caption or "")
 
@@ -312,7 +310,7 @@ async def bootstrap_answer(update: Update, context) -> int:
     # Accept text or voice
     if update.message.voice:
         voice = update.message.voice
-        dest = WIKI_ROOT / "raw" / "assets" / f"{voice.file_unique_id}.ogg"
+        dest = VAULT_ROOT / "raw" / "assets" / f"{voice.file_unique_id}.ogg"
         await _download_file(context, voice.file_id, dest)
         content = dest
     else:
@@ -321,10 +319,10 @@ async def bootstrap_answer(update: Update, context) -> int:
     user_hint = f"bootstrap — direkt als PersonalFact verarbeiten. Frage {q_idx + 1}/10."
     try:
         extracted = _extractor.extract(content, user_hint=user_hint)
-        raw_event = extracted.to_raw_event(WIKI_ROOT)
+        raw_event = extracted.to_raw_event(VAULT_ROOT)
         raw_event["source_type"] = "bootstrap_interview"
         raw_event["question_index"] = q_idx + 1
-        extracted.save_event(WIKI_ROOT)
+        extracted.save_event(VAULT_ROOT)
         await asyncio.to_thread(run_ingest, raw_event)
     except Exception as exc:
         logger.error("Bootstrap error Q%d: %s", q_idx + 1, exc)

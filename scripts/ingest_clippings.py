@@ -64,6 +64,11 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(REPO_ROOT / ".env")  # before agents.config (KOS_VAULT_ROOT)
+
+from agents.config import VAULT_ROOT  # noqa: E402
 from scripts.ingest import (  # noqa: E402
     BACKUP_BRANCH,
     LEDGER_PATH,
@@ -172,7 +177,7 @@ def _report(records: list[ClipRecord], counts: dict[str, int],
 
 
 def run(
-    repo_root: Path = REPO_ROOT,
+    repo_root: Path = VAULT_ROOT,
     *,
     dry_run: bool = True,
     require_backup_branch: bool = True,
@@ -273,7 +278,7 @@ def _cli() -> int:
     dry_run = not args.live
 
     if args.reconstruct_ledger:
-        entries = reconstruct_ledger(REPO_ROOT)
+        entries = reconstruct_ledger(VAULT_ROOT)
         print(f"[reconstruct-ledger] {len(entries)} IDs aus wiki/topics/")
         for sid, entry in sorted(entries.items()):
             print(f"  {sid} → {entry['topic_pages']}")
@@ -281,7 +286,7 @@ def _cli() -> int:
             print("  (dry-run — nichts geschrieben; --live zum Schreiben)")
         else:
             save_ledger(entries)
-            print(f"  geschrieben: {LEDGER_PATH.relative_to(REPO_ROOT)}")
+            print(f"  geschrieben: {LEDGER_PATH}")
         return 0
 
     try:

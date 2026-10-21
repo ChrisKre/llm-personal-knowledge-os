@@ -6,14 +6,14 @@ import subprocess
 from pathlib import Path
 from typing import TypedDict
 
+from agents.config import VAULT_ROOT
+
 
 class WikiWrite(TypedDict):
-    path: str        # relative path from repo root, e.g. "wiki/language/vocab/v_es_madrugada.md"
+    path: str        # relative path from the vault root, e.g. "wiki/language/vocab/v_es_madrugada.md"
     content: str     # full markdown content
     operation: str   # "create" | "update" | "append"
 
-
-WIKI_ROOT = Path(__file__).parent.parent
 
 # Human-owned Zonen (SCHEMA §2, ENT-062) — Verzeichnisse, in die die KI nie
 # schreibt. Single-Source: Guard (assert_writable) und Konsistenz-Detektor
@@ -44,7 +44,7 @@ def assert_writable(path: str) -> None:
             )
 
 
-def find_zone_owner_violations(wiki_root: Path = WIKI_ROOT) -> list[str]:
+def find_zone_owner_violations(wiki_root: Path = VAULT_ROOT) -> list[str]:
     """Konsistenz-Detektor „Zone ⊄ owner-Flags" (ENT-062 Doppel-Kennzeichnung).
 
     Liefert repo-relative Pfade aller Markdown-Seiten in deklarierten Zonen,
@@ -65,7 +65,7 @@ def find_zone_owner_violations(wiki_root: Path = WIKI_ROOT) -> list[str]:
     return violations
 
 
-def execute_writes(writes: list[WikiWrite], wiki_root: Path = WIKI_ROOT) -> list[str]:
+def execute_writes(writes: list[WikiWrite], wiki_root: Path = VAULT_ROOT) -> list[str]:
     """Execute a list of WikiWrite operations on the current branch (draft).
 
     Returns list of written file paths.
@@ -97,7 +97,7 @@ def execute_writes(writes: list[WikiWrite], wiki_root: Path = WIKI_ROOT) -> list
     return written
 
 
-def approve_draft(wiki_root: Path = WIKI_ROOT) -> bool:
+def approve_draft(wiki_root: Path = VAULT_ROOT) -> bool:
     """Merge draft → master. Called via Telegram callback after user approval."""
     result = subprocess.run(
         ["git", "merge", "draft", "--no-ff", "-m", "approved by user"],
@@ -106,7 +106,7 @@ def approve_draft(wiki_root: Path = WIKI_ROOT) -> bool:
     return result.returncode == 0
 
 
-def reject_draft(wiki_root: Path = WIKI_ROOT) -> bool:
+def reject_draft(wiki_root: Path = VAULT_ROOT) -> bool:
     """Reset draft branch to current master state."""
     cmds = [
         ["git", "checkout", "master"],
@@ -120,7 +120,7 @@ def reject_draft(wiki_root: Path = WIKI_ROOT) -> bool:
     return True
 
 
-def ensure_draft_branch(wiki_root: Path = WIKI_ROOT) -> None:
+def ensure_draft_branch(wiki_root: Path = VAULT_ROOT) -> None:
     """Create draft branch if it doesn't exist."""
     result = subprocess.run(
         ["git", "rev-parse", "--verify", "draft"],

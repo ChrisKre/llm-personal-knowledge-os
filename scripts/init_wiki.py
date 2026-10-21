@@ -14,7 +14,15 @@ import sys
 from datetime import date
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).parent.parent
+REPO_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(REPO_ROOT))
+
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(REPO_ROOT / ".env")  # before agents.config (KOS_VAULT_ROOT)
+
+from agents.config import VAULT_ROOT  # noqa: E402
+
 TODAY = date.today().isoformat()
 
 # Verzeichnisse die existieren müssen
@@ -169,38 +177,38 @@ def create_dirs(repo_root: Path) -> None:
             gitkeep.touch()
 
 
-def create_file(path: Path, content: str, force: bool) -> bool:
+def create_file(path: Path, content: str, force: bool, root: Path = VAULT_ROOT) -> bool:
     """Create file if it doesn't exist (or force=True). Returns True if written."""
     if path.exists() and not force:
-        print(f"  SKIP  {path.relative_to(REPO_ROOT)}  (bereits vorhanden, --force zum Überschreiben)")
+        print(f"  SKIP  {path.relative_to(root)}  (bereits vorhanden, --force zum Überschreiben)")
         return False
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
-    print(f"  OK    {path.relative_to(REPO_ROOT)}")
+    print(f"  OK    {path.relative_to(root)}")
     return True
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="First-Run-Setup für das LLM-Personal-Knowledge-OS")
     parser.add_argument("--force", action="store_true", help="Überschreibt existierende Dateien")
-    parser.add_argument("--root", type=Path, default=REPO_ROOT, help="Repo-Root (Standard: Skript-Verzeichnis/../)")
+    parser.add_argument("--root", type=Path, default=VAULT_ROOT, help="Vault-Root (Standard: KOS_VAULT_ROOT bzw. sample_vault/)")
     args = parser.parse_args()
 
     root: Path = args.root.resolve()
     force: bool = args.force
 
     print(f"\nLLM-Personal-Knowledge-OS — First-Run-Setup")
-    print(f"Repo-Root: {root}\n")
+    print(f"Vault-Root: {root}\n")
 
     print("1. Verzeichnisse anlegen...")
     create_dirs(root)
     print(f"   {len(REQUIRED_DIRS)} Verzeichnisse bereit.\n")
 
     print("2. System-Dateien anlegen...")
-    create_file(root / "index.md",                                 INDEX_MD_TEMPLATE,                 force)
-    create_file(root / "log.md",                                   LOG_MD_TEMPLATE,                   force)
-    create_file(root / "user_profile.md",                          USER_PROFILE_TEMPLATE,             force)
-    create_file(root / "wiki/language/user_language_profile.md",   USER_LANGUAGE_PROFILE_TEMPLATE,    force)
+    create_file(root / "index.md",                                 INDEX_MD_TEMPLATE,                 force, root)
+    create_file(root / "log.md",                                   LOG_MD_TEMPLATE,                   force, root)
+    create_file(root / "user_profile.md",                          USER_PROFILE_TEMPLATE,             force, root)
+    create_file(root / "wiki/language/user_language_profile.md",   USER_LANGUAGE_PROFILE_TEMPLATE,    force, root)
 
     print("\nSetup abgeschlossen.")
     print("\nNächste Schritte:")

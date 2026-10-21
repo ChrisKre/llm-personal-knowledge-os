@@ -12,12 +12,10 @@ Three stages (from ARCHITECTURE.md §3.3):
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from agents.base_agent import BaseAgent
 
-WIKI_ROOT = Path(__file__).parent.parent
 
 CLASSIFY_PROMPT = """\
 Classify the following input from a user's personal knowledge system.

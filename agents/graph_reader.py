@@ -17,10 +17,11 @@ from typing import Any
 
 import anthropic
 
+from agents.config import VAULT_ROOT
+
 WIKI_PAGE_THRESHOLD = 30
-WIKI_ROOT = Path(__file__).parent.parent  # repo root
-INDEX_PATH = WIKI_ROOT / "index.md"
-SQLITE_PATH = WIKI_ROOT / "wiki_index.db"
+INDEX_PATH = VAULT_ROOT / "index.md"
+SQLITE_PATH = VAULT_ROOT / "wiki_index.db"
 
 
 # ---------------------------------------------------------------------------
@@ -29,7 +30,7 @@ SQLITE_PATH = WIKI_ROOT / "wiki_index.db"
 
 @dataclass
 class WikiPage:
-    path: str           # relative path from repo root, e.g. "wiki/personal/facts/pf_..."
+    path: str           # relative path from the vault root, e.g. "wiki/personal/facts/pf_..."
     title: str
     page_type: str      # "PersonalFact" | "VocabEntry" | "CulturalEntry" | "Concept" | ...
     summary: str        # one-line summary (from index.md or DB)
@@ -38,7 +39,7 @@ class WikiPage:
     story_score: int | None = None
     language: str | None = None   # ISO 639-1, for VocabEntry
 
-    def load_content(self, wiki_root: Path = WIKI_ROOT) -> "WikiPage":
+    def load_content(self, wiki_root: Path = VAULT_ROOT) -> "WikiPage":
         """Load full file content into self.content. Returns self for chaining."""
         full_path = wiki_root / self.path
         if full_path.exists():
@@ -55,7 +56,7 @@ def search_wiki(
     page_type: str | None = None,
     language: str | None = None,
     limit: int = 10,
-    wiki_root: Path = WIKI_ROOT,
+    wiki_root: Path = VAULT_ROOT,
 ) -> list[WikiPage]:
     """Search the knowledge graph. Automatically uses Phase 1 or Phase 2.
 
@@ -75,7 +76,7 @@ def search_wiki(
         return _search_sqlite(query, page_type, language, limit, wiki_root)
 
 
-def fetch_context(state: dict, wiki_root: Path = WIKI_ROOT) -> dict:
+def fetch_context(state: dict, wiki_root: Path = VAULT_ROOT) -> dict:
     """LangGraph node: extract keywords from raw_event and populate graph_context.
 
     Reads state["raw_event"], extracts keywords via Haiku, searches the graph,

@@ -28,8 +28,13 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(REPO_ROOT / ".env")  # before agents.config (KOS_VAULT_ROOT)
+
 from agents import frontmatter  # noqa: E402
-VOCAB_DIR = REPO_ROOT / "wiki" / "language" / "vocab"
+from agents.config import VAULT_ROOT  # noqa: E402
+VOCAB_DIR = VAULT_ROOT / "wiki" / "language" / "vocab"
 DEFAULT_OUT = REPO_ROOT / "out" / "pks_spanisch_vokabeln.apkg"
 EXPORTABLE_STATUS = {"elaborated", "practiced"}
 

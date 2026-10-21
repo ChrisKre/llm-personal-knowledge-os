@@ -24,6 +24,7 @@ from pathlib import Path
 
 import pytest
 
+from agents.config import VAULT_ROOT
 from scripts.ingest import EMPTY_CLIP_MIN_WORDS, LEDGER_PATH, SOURCE_DIRS
 from scripts.ingest.ledger import load_ledger, reconstruct_ledger, save_ledger
 from scripts.ingest.stage0 import canonical_id_from_source, extract_clip
@@ -326,8 +327,8 @@ def test_plan_json_roundtrip(tmp_path: Path) -> None:
     assert plan["source_dirs"] == list(SOURCE_DIRS)
 
 
-def test_ledger_repo_default_is_empty_object() -> None:
-    """Liefer-Artefakt 1: das versionierte Ledger existiert ab S032 als
-    leeres ``{}`` (Initial-Schnitt, dokumentiert in scripts/ingest/ledger.py)."""
-    assert LEDGER_PATH.exists()
-    assert load_ledger(LEDGER_PATH) == {}
+def test_ledger_default_lives_in_vault(tmp_path: Path) -> None:
+    """The ledger records processed vault sources, so it lives in the vault
+    (KOS_VAULT_ROOT), not in the code repo. A missing ledger loads as ``{}``."""
+    assert LEDGER_PATH.parent == VAULT_ROOT
+    assert load_ledger(tmp_path / "clippings_ledger.json") == {}

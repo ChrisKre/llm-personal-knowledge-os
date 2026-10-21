@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from datetime import date
-from pathlib import Path
 from textwrap import dedent
 from typing import TypedDict
 
@@ -18,7 +17,6 @@ from agents.base_agent import BaseAgent
 from agents.frontmatter import render as render_frontmatter
 from agents.graph_writer import WikiWrite
 
-WIKI_ROOT = Path(__file__).parent.parent
 
 # ---------------------------------------------------------------------------
 # Prompts

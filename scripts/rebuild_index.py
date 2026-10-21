@@ -56,10 +56,15 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO_ROOT))
 
-from agents import frontmatter  # noqa: E402
+from dotenv import load_dotenv  # noqa: E402
 
-WIKI_DIR = REPO_ROOT / "wiki"
-INDEX_PATH = REPO_ROOT / "index.md"
+load_dotenv(REPO_ROOT / ".env")  # before agents.config (KOS_VAULT_ROOT)
+
+from agents import frontmatter  # noqa: E402
+from agents.config import VAULT_ROOT  # noqa: E402
+
+WIKI_DIR = VAULT_ROOT / "wiki"
+INDEX_PATH = VAULT_ROOT / "index.md"
 
 INDEX_HEADER = (
     "# Index — LLM-Personal-Knowledge-OS\n"
@@ -245,14 +250,14 @@ def _cli() -> int:
     result = run(dry_run=args.dry_run)
     total = sum(len(v) for v in result["entries"].values())
     label = "(dry-run) " if args.dry_run else ""
-    print(f"{label}rebuild_index — {total} entries")
+    print(f"{label}rebuild_index — {total} entries (vault: {VAULT_ROOT})")
     for section, items in result["entries"].items():
         print(f"  {section}: {len(items)}")
     if result["skipped"]:
         print(f"  skipped: {len(result['skipped'])}")
         for path, reason in result["skipped"]:
             try:
-                rel = path.relative_to(REPO_ROOT)
+                rel = path.relative_to(VAULT_ROOT)
             except ValueError:
                 rel = path
             print(f"    - {rel}: {reason}")

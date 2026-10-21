@@ -92,7 +92,7 @@ def main() -> None:
         print("\nOptionen:\n  A) ollama pull llama3.2 && ollama serve\n  B) ANTHROPIC_API_KEY=... in .env setzen")
         return
 
-    from main_workflow import WIKI_ROOT, SupervisorState, _load_graph_index, _load_user_profile, build_workflow
+    from main_workflow import VAULT_ROOT, SupervisorState, _load_graph_index, _load_user_profile, build_workflow
     from agents.graph_writer import execute_writes
 
     raw_event: dict = {
@@ -118,12 +118,12 @@ def main() -> None:
         _gw.execute_writes = _dry_execute
         _mw.execute_writes = _dry_execute
 
-    graph = build_workflow(WIKI_ROOT)
+    graph = build_workflow(VAULT_ROOT)
 
     initial_state = SupervisorState(
         raw_event=raw_event,
-        user_profile=_load_user_profile(WIKI_ROOT),
-        graph_index=_load_graph_index(WIKI_ROOT),
+        user_profile=_load_user_profile(VAULT_ROOT),
+        graph_index=_load_graph_index(VAULT_ROOT),
         classified_intent=args.intent,
         graph_context=[],
         assigned_agents=[],

@@ -27,9 +27,7 @@ keine Stil-Freiheit; Brief 032 §Scope-Schutz):
 
 from __future__ import annotations
 
-from pathlib import Path
-
-REPO_ROOT = Path(__file__).resolve().parents[2]
+from agents.config import VAULT_ROOT
 
 # Registrierte Source-Mounts der Ingestion (ENT-058 / SCHEMA §2, Kanal K2).
 # Konfigurations-Liste statt hart verdrahtetem Verzeichnis — die Pipeline ist
@@ -41,7 +39,7 @@ SOURCE_DIRS: tuple[str, ...] = (
 
 # Ingest-Ledger: verarbeitete kanonische Quell-IDs (02 §B2 Idempotenz-
 # Definition). Versioniert — Betriebs-Zustand, verlustkritisch (Brief-032 F2).
-LEDGER_PATH = REPO_ROOT / "scripts" / "ingest" / "clippings_ledger.json"
+LEDGER_PATH = VAULT_ROOT / "clippings_ledger.json"
 
 # Backup-Branch-Pflicht fuer Live-Laeufe (Muster scripts/migrations/).
 # Der Branch selbst wird erst in S033 vor dem echten Batch angelegt —
