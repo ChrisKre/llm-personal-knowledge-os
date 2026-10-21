@@ -24,3 +24,21 @@ Thumbs.db
 
 # Anki-Export-Artefakte (generiert, kein Source) — Session 023
 out/
+
+# Personal data — lives in the private vault (KOS_VAULT_ROOT), never in this repo.
+# Anchored with a leading slash so sample_vault/wiki/ etc. stay tracked.
+/wiki/
+/raw/
+/index.md
+/log.md
+/user_profile.md
+*.db
+.pytest_cache/
+
+# Internal release / planning files (not part of the public repo)
+/PUBLIC_RELEASE_PLAN.md
+/RELEASE_PROMPTS.md
+/SUBMISSION_DRAFT.md
+/(Ext)*.md
+/IDEA.md
+/*.png
