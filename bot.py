@@ -30,10 +30,13 @@ from telegram.ext import (
     filters,
 )
 
-from agents.extractors.extractor import Extractor
-from main_workflow import run_ingest
+# .env must be loaded before agents.config is imported (KOS_VAULT_ROOT).
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
-load_dotenv()
+from agents.config import VAULT_ROOT  # noqa: E402
+from agents.extractors.extractor import Extractor  # noqa: E402
+from main_workflow import run_ingest  # noqa: E402
+
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     level=logging.INFO,

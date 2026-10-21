@@ -19,14 +19,16 @@ from dotenv import load_dotenv
 from langgraph.constants import Send
 from langgraph.graph import END, StateGraph
 
-from agents import graph_reader
-from agents.diary_agent import DiaryAgent
-from agents.graph_reader import WikiPage
-from agents.graph_writer import WikiWrite, execute_writes
-from agents.language_agent import LanguageAgent
-from agents.supervisor import Supervisor
+# .env must be loaded before agents.config is imported (KOS_VAULT_ROOT).
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
-load_dotenv()
+from agents import graph_reader  # noqa: E402
+from agents.config import VAULT_ROOT  # noqa: E402
+from agents.diary_agent import DiaryAgent  # noqa: E402
+from agents.graph_reader import WikiPage  # noqa: E402
+from agents.graph_writer import WikiWrite, execute_writes  # noqa: E402
+from agents.language_agent import LanguageAgent  # noqa: E402
+from agents.supervisor import Supervisor  # noqa: E402
 
 WIKI_ROOT = Path(__file__).parent
 
