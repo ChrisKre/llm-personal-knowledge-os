@@ -42,6 +42,8 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+# httpx logs every request URL at INFO; Telegram URLs contain the bot token.
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 _api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 _client = anthropic.Anthropic(api_key=_api_key) if _api_key else None
