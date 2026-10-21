@@ -1,25 +1,26 @@
-"""S029: Tests fuer CulturalEntry-Frontmatter-Migration.
+"""S029: tests for the CulturalEntry frontmatter migration.
 
-Direkte Schwester von ``test_frontmatter_yaml.py`` (BL-03), **ohne** den
-``anki_id``-Erhaltungstest — CulturalEntries haben keine Anki-Karten.
+Direct sibling of ``test_frontmatter_yaml.py`` (BL-03), **without** the
+``anki_id`` preservation test — CulturalEntries have no Anki cards.
 
-Pflicht-Pruefungen aus Brief 029:
+Mandatory checks from brief 029:
 
-- **Format-Korrektheit:** das migrierte Frontmatter ist mit ``yaml.safe_load``
-  ohne Workaround parsbar und der Top-Level-Type bleibt ``CulturalEntry``.
-- **Idempotenz:** zweiter Lauf gegen migrierten Stand schreibt nichts. Diese
-  Garantie ist nicht-trivial: ``_normalize_legacy_fm`` wuerde die 2-Space-
-  Continuation-Indents im sauberen Output als haeufigsten Prefix erkennen
-  und strippen — der Migration-Code-Pfad muss das umgehen.
-- **Soll-Zustand:** der Migrations-Output stimmt byte-fuer-byte mit der
-  eingefrorenen AFTER-Fixture ueberein.
-- **Body-Erhaltung:** Body-Inhalt bleibt nach FM-Trennung gleich (Brief
-  S026/S027-Regel; die 14-Space-Body-Indent ist Renderer-Frage und gehoert
-  zu BL-05).
-- **Backup-Branch-Check:** Pre-Step bricht ab, wenn der Branch fehlt.
+- **Format correctness:** the migrated frontmatter parses with
+  ``yaml.safe_load`` without workarounds and the top-level type stays
+  ``CulturalEntry``.
+- **Idempotency:** a second run against the migrated state writes nothing.
+  This guarantee is non-trivial: ``_normalize_legacy_fm`` would see the
+  2-space continuation indents in clean output as the most common prefix and
+  strip them; the migration code path has to avoid that.
+- **Target state:** the migration output matches the frozen AFTER fixture
+  byte for byte.
+- **Body preservation:** the body content stays the same after the FM split
+  (rule from briefs S026/S027; the 14-space body indent is a renderer question
+  and belongs to BL-05).
+- **Backup branch check:** the pre-step aborts if the branch is missing.
 
-Fixtures: ``tests/migrations/fixtures/cultural_before/`` (kaputter Stand)
-und ``cultural_after/`` (Soll-Zustand).
+Fixtures: ``tests/migrations/fixtures/cultural_before/`` (broken state)
+and ``cultural_after/`` (target state).
 """
 
 from __future__ import annotations
@@ -77,19 +78,19 @@ def test_idempotent_second_run_changes_nothing(staged_repo: Path):
 
     second = mod.run(staged_repo, require_backup_branch=False, dry_run=False, update_log=False)
     assert second["changed"] == [], (
-        f"Migration nicht idempotent. Zweiter Lauf veraendert: {second['changed']}"
+        f"Migration not idempotent. Second run changed: {second['changed']}"
     )
 
 
 def test_backup_branch_check_aborts_when_missing(staged_repo: Path):
-    """Backup-Branch-Check als Pflicht-Pre-Step (Brief 029 DoD)."""
+    """Backup branch check as a mandatory pre-step (brief 029 DoD)."""
     mod = _load_migration()
-    with pytest.raises(RuntimeError, match="Backup-Branch"):
+    with pytest.raises(RuntimeError, match="Backup branch"):
         mod.run(staged_repo, require_backup_branch=True, dry_run=False, update_log=False)
 
 
 def test_after_fixtures_match_post_migration_output(staged_repo: Path):
-    """fixtures/cultural_after/ ist der eingefrorene Soll-Zustand."""
+    """fixtures/cultural_after/ is the frozen target state."""
     mod = _load_migration()
     mod.run(staged_repo, require_backup_branch=False, dry_run=False, update_log=False)
 
@@ -97,21 +98,20 @@ def test_after_fixtures_match_post_migration_output(staged_repo: Path):
     for expected in sorted(AFTER_DIR.glob("c_*.md")):
         actual = migrated_dir / expected.name
         assert actual.read_text(encoding="utf-8") == expected.read_text(encoding="utf-8"), (
-            f"{expected.name}: Migrations-Output weicht vom eingefrorenen Soll-Zustand ab."
+            f"{expected.name}: migration output differs from the frozen target state."
         )
 
 
 def test_body_content_preserved(staged_repo: Path):
-    """Migration darf NUR Frontmatter aendern; Body-Inhalt bleibt erhalten.
+    """The migration may ONLY change frontmatter; body content is preserved.
 
-    Vergleicht Body-Strings via ``_split`` (rohe FM/Body-Trennung) statt
-    ``parse``, weil die BEFORE-Fixture FM-seitig kaputt ist — der Migrations-
-    Defekt ist gerade, dass selbst ``_normalize_legacy_fm`` daran scheitert.
-    Fuehrendes Whitespace wird gestripped, weil ``render`` einen festen
-    ``\\n\\n``-Abstand zwischen FM und Body normalisiert (Brief S026:
-    Body-*Inhalt* bleibt; Spacing ist unkritisch). Die 14-Space-Body-
-    Einrueckung in c_es_flamenco bleibt damit erhalten — sie ist Renderer-
-    Frage und gehoert zu BL-05.
+    Compares body strings via ``_split`` (raw FM/body split) instead of
+    ``parse``, because the BEFORE fixture has broken FM — the migration defect
+    is exactly that even ``_normalize_legacy_fm`` fails on it. Leading
+    whitespace is stripped because ``render`` normalizes a fixed ``\\n\\n``
+    gap between FM and body (brief S026: the body *content* is kept; spacing
+    doesn't matter). The 14-space body indent in c_es_flamenco is therefore
+    preserved; it is a renderer question and belongs to BL-05.
     """
     from agents.frontmatter import _split
     mod = _load_migration()
@@ -127,5 +127,5 @@ def test_body_content_preserved(staged_repo: Path):
         after_text = (migrated_dir / name).read_text(encoding="utf-8")
         after_body = _split(after_text)[1].strip()
         assert after_body == before_body, (
-            f"{name}: Body-Inhalt wurde von der Migration veraendert (verboten)."
+            f"{name}: body content was changed by the migration (forbidden)."
         )

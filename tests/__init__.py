@@ -1,17 +1,17 @@
 """Test suite for LLM-Personal-Knowledge-OS.
 
-Konvention (etabliert in Workshop S025 / BL-02):
-- ``tests/migrations/`` — Migrations-Tests (Idempotenz, Backups, anki_id-Erhaltung).
-  Fixture-Layout: ``tests/migrations/fixtures/before/`` (Snapshot vor Migration),
-  ``tests/migrations/fixtures/after/`` (erwartetes Ergebnis).
-- ``tests/lint/`` — Lint-Auto-Fix-Tests (Backlink-Symmetrie, Index-Sync, Slug-Dedup).
-  Fixture-Layout pro Detektor: ``before/`` + ``after/`` Wiki-Mock-Trees.
-- ``tests/render/`` — Anki-Render-Snapshot-Tests pro Profil A/B/C/D.
-- ``tests/multimodal/`` — E2E-Tests für Bot-Handler (Bilder, PDFs, SHA-Dedup).
+Convention (established in workshop S025 / BL-02):
+- ``tests/migrations/`` — migration tests (idempotency, backups, anki_id preservation).
+  Fixture layout: ``tests/migrations/fixtures/before/`` (snapshot before the migration),
+  ``tests/migrations/fixtures/after/`` (expected result).
+- ``tests/lint/`` — lint and index tests (backlink symmetry, index sync, slug dedup).
+  Fixture layout per detector: ``before/`` + ``after/`` wiki mock trees.
+- ``tests/render/`` — Anki render snapshot tests per profile A/B/C/D.
+- ``tests/multimodal/`` — E2E tests for bot handlers (images, PDFs, SHA dedup).
 
-Snapshot-Ablage: ``__snapshots__/`` (pytest-snapshot-Default) im jeweiligen Test-Ordner.
+Snapshots live in ``__snapshots__/`` (pytest-snapshot default) in each test folder.
 
-Naming: ``test_<modul>_<aspekt>.py`` (z.B. ``test_frontmatter_yaml.py``).
+Naming: ``test_<module>_<aspect>.py`` (e.g. ``test_frontmatter_yaml.py``).
 
-Aufruf: ``pytest tests/`` läuft alle Tests; ``pytest tests/migrations/`` einzeln.
+Usage: ``pytest tests/`` runs all tests; ``pytest tests/migrations/`` a single folder.
 """

@@ -1,18 +1,18 @@
-"""Frontmatter helper — single-source read/write/patch fuer Wiki-Markdown.
+"""Frontmatter helper — single-source read/write/patch for wiki Markdown.
 
-Konsolidiert die drei verteilten Frontmatter-Pfade (siehe BL-03 Backlog):
-- ``scripts/export_anki.py:79-98`` (regex-basiert, robust gegen Legacy-Indent)
-- ``agents/language_agent.py`` ``_build_frontmatter()`` (f-string-dedent, Quelle des Bugs)
-- ``scripts/rebuild_index.py`` (geplant in BL-04)
+Consolidates the three formerly separate frontmatter code paths (see backlog BL-03):
+- ``scripts/export_anki.py:79-98`` (regex-based, robust against the legacy indent)
+- ``agents/language_agent.py`` ``_build_frontmatter()`` (f-string dedent, source of the bug)
+- ``scripts/rebuild_index.py`` (planned in BL-04)
 
-Nach BL-03 nutzt ``language_agent`` diesen Helper direkt; ``export_anki`` wird in
-BL-04 umgestellt (Reihenfolge laut Workshop).
+Since BL-03, ``language_agent`` uses this helper directly; ``export_anki`` was
+switched over in BL-04 (order as planned in the workshop).
 
-Format-Konvention (etabliert ENT-005, durchgesetzt durch BL-03):
-- ``yaml.safe_load`` muss ohne Workaround durchlaufen.
-- Beim Schreiben: ``sort_keys=False`` (Property-Reihenfolge bleibt), ``allow_unicode=True``
-  (Spanisch + Deutsch ohne Escape), ``default_flow_style=False`` (alles Block-Style,
-  diff-freundlich; Tags + Bridges werden multi-line).
+Format convention (established in ENT-005, enforced by BL-03):
+- ``yaml.safe_load`` must succeed without workarounds.
+- When writing: ``sort_keys=False`` (property order is kept), ``allow_unicode=True``
+  (Spanish and German without escapes), ``default_flow_style=False`` (block style
+  throughout, diff-friendly; tags and bridges become multi-line).
 """
 
 from __future__ import annotations
@@ -30,9 +30,9 @@ _FM_DELIM_RE = re.compile(r"^\s*---\s*$")
 def _split(text: str) -> tuple[str, str, str]:
     """Return (frontmatter_block, body, trailing_newline_marker).
 
-    Splits at the first two ``---`` lines. Robust gegen den Legacy-Indent-Bug
-    (FM-Block kann komplett einrueckt sein); die Indentation wird nicht hier
-    entfernt, sondern in ``_normalize_legacy_fm`` waehrend des Parses.
+    Splits at the first two ``---`` lines. Robust against the legacy indent bug
+    (the FM block may be indented as a whole); the indentation is not removed
+    here but in ``_normalize_legacy_fm`` during parsing.
     """
     lines = text.splitlines(keepends=False)
     start = end = -1
@@ -55,20 +55,20 @@ _BARE_QUESTIONMARK_RE = re.compile(r"^(\s*[A-Za-z_][\w]*:\s*)\?(\s*)$")
 
 
 def _normalize_legacy_fm(fm_text: str) -> str:
-    """Repariere Legacy-FM-Bloecke fuer ``yaml.safe_load``.
+    """Repair legacy FM blocks for ``yaml.safe_load``.
 
-    Zwei Defekte adressiert:
+    Two defects are handled:
 
-    1. *Indent-Bug*: ``_build_frontmatter`` interpolierte mehrzeilige Substrings
-       (``cross_language_bridges:\\n  - lang: de\\n    type: ?...``) in einen
-       ``textwrap.dedent``-f-string. Die interpolierten Zeilen begannen bei Spalte 0,
-       der Rest war 16-fach eingerueckt. ``dedent`` errechnete den minimalen
-       gemeinsamen Prefix (= 0) und entfernte nichts -> kaputtes YAML.
-       Reparatur: haeufigste Einrueckung ermitteln, abziehen.
+    1. *Indent bug*: ``_build_frontmatter`` interpolated multi-line substrings
+       (``cross_language_bridges:\\n  - lang: de\\n    type: ?...``) into a
+       ``textwrap.dedent`` f-string. The interpolated lines started at column 0,
+       the rest was indented by 16. ``dedent`` computed the minimal common
+       prefix (= 0) and removed nothing -> broken YAML.
+       Repair: find the most common indentation and strip it.
 
-    2. *Bare-Questionmark-Bug*: ``type: ?`` als Bridge-Type-Default. ``?`` ist YAML-
-       Key-Indicator -> ``ScannerError: mapping keys are not allowed here``.
-       Reparatur: ``key: ?`` -> ``key: '?'`` zeilenweise.
+    2. *Bare question mark bug*: ``type: ?`` as the bridge type default. ``?`` is the
+       YAML key indicator -> ``ScannerError: mapping keys are not allowed here``.
+       Repair: ``key: ?`` -> ``key: '?'`` line by line.
     """
     lines = fm_text.splitlines()
     indents: Counter[int] = Counter()
@@ -94,11 +94,11 @@ def _normalize_legacy_fm(fm_text: str) -> str:
 def parse(text: str) -> tuple[dict[str, Any], str]:
     """Parse Markdown-with-frontmatter -> ``(frontmatter_dict, body)``.
 
-    ``frontmatter_dict`` ist leer wenn kein FM-Block existiert. Body ist der
-    Rest des Files, ohne fuehrenden ``---``-Marker.
+    ``frontmatter_dict`` is empty if there is no FM block. The body is the
+    rest of the file, without the leading ``---`` marker.
 
-    Raises ``yaml.YAMLError`` wenn auch nach Legacy-Repair kein gueltiges YAML
-    entsteht.
+    Raises ``yaml.YAMLError`` if the YAML is still invalid after the legacy
+    repair.
     """
     fm_raw, body, _ = _split(text)
     if not fm_raw:
@@ -117,11 +117,11 @@ def parse(text: str) -> tuple[dict[str, Any], str]:
 def render(frontmatter: dict[str, Any], body: str) -> str:
     """Render ``(frontmatter_dict, body)`` -> Markdown-with-frontmatter.
 
-    Garantien:
-    - ``yaml.safe_load`` der Ausgabe ergibt das gleiche Dict zurueck.
-    - Property-Reihenfolge bleibt erhalten (``sort_keys=False``).
-    - Body wird unveraendert eingehaengt; ein einzelner Leerzeichen-trennender
-      Block zwischen FM und Body wird normalisiert.
+    Guarantees:
+    - ``yaml.safe_load`` of the output returns the same dict.
+    - Property order is preserved (``sort_keys=False``).
+    - The body is appended unchanged; a single separating blank block
+      between FM and body is normalized.
     """
     fm_yaml = yaml.dump(
         frontmatter,

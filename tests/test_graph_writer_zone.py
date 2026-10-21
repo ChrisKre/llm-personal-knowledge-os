@@ -1,14 +1,14 @@
-"""BL-15: Guard-Tests für den Axiom-2-Carve-out (ENT-062, QM R10/QK-19).
+"""BL-15: guard tests for the axiom 2 carve-out (ENT-062, QM R10/QK-19).
 
-Drei Verträge:
-- ``execute_writes()`` wirft ``HumanOwnedZoneError`` für Writes in eine
-  deklarierte human-owned Zone — und zwar **bevor** irgendein Write des
-  Batches ausgeführt wird (kein Partial-Write).
-- ``assert_writable()`` ist die geteilte Zonen-Prüfung (eine Implementierung,
-  importierbar für künftige BL-07-Auto-Fixes) und ist Backslash-/Case-tolerant
-  (Windows-Dateisystem).
-- ``find_zone_owner_violations()`` ist der Konsistenz-Detektor
-  „Zone ⊄ owner-Flags" (Pure Function, Lint-Integration folgt mit BL-07/BL-18).
+Three contracts:
+- ``execute_writes()`` raises ``HumanOwnedZoneError`` for writes into a
+  declared human-owned zone, **before** any write of the batch is executed
+  (no partial writes).
+- ``assert_writable()`` is the shared zone check (one implementation,
+  importable for future BL-07 auto-fixes) and tolerates backslashes and case
+  differences (Windows file systems).
+- ``find_zone_owner_violations()`` is the consistency detector
+  "zone ⊄ owner flags" (pure function; lint integration follows with BL-07/BL-18).
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ from agents.graph_writer import (
 
 
 def test_execute_writes_rejects_zone_write(tmp_path: Path) -> None:
-    """WikiWrite in die Zone → harte Exception, kein Partial-Write."""
+    """WikiWrite into the zone → hard exception, no partial write."""
     writes = [
         {"path": "wiki/topics/tp_health_x.md", "content": "ok", "operation": "create"},
         {"path": "wiki/personal/health/02_protocol_main.md",
@@ -34,8 +34,8 @@ def test_execute_writes_rejects_zone_write(tmp_path: Path) -> None:
     ]
     with pytest.raises(HumanOwnedZoneError):
         execute_writes(writes, wiki_root=tmp_path)
-    # Der valide erste Write darf NICHT ausgeführt worden sein (fail fast
-    # vor dem ersten Write — sonst hinterließe ein Zonen-Verstoß Teilzustand).
+    # The valid first write must NOT have been executed (fail fast before the
+    # first write — otherwise a zone violation would leave partial state).
     assert not (tmp_path / "wiki" / "topics" / "tp_health_x.md").exists()
     assert not (tmp_path / "wiki" / "personal" / "health").exists()
 
@@ -49,7 +49,7 @@ def test_execute_writes_outside_zone_passes(tmp_path: Path) -> None:
 
 
 def test_assert_writable_windows_variants() -> None:
-    """Backslash- und Case-Varianten desselben Pfads umgehen den Guard nicht."""
+    """Backslash and case variants of the same path do not bypass the guard."""
     for evil in (
         "wiki/personal/health/x.md",
         "wiki\\personal\\health\\x.md",
@@ -58,13 +58,13 @@ def test_assert_writable_windows_variants() -> None:
     ):
         with pytest.raises(HumanOwnedZoneError):
             assert_writable(evil)
-    # Nachbarn bleiben schreibbar:
+    # Neighbouring paths stay writable:
     assert_writable("wiki/personal/facts/pf_x.md")
     assert_writable("wiki/topics/tp_health_x.md")
 
 
 def test_find_zone_owner_violations(tmp_path: Path) -> None:
-    """Detektor „Zone ⊄ owner-Flags": meldet fehlende/abweichende Flags."""
+    """Detector "zone ⊄ owner flags": reports missing/different flags."""
     zone = tmp_path / "wiki" / "personal" / "health"
     zone.mkdir(parents=True)
     (zone / "flagged.md").write_text(

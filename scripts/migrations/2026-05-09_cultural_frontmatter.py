@@ -1,49 +1,48 @@
-"""Migration 2026-05-09: CulturalEntry-Frontmatter-Reparatur.
+"""Migration 2026-05-09: CulturalEntry frontmatter repair.
 
-Quelle: Brief 029 (sessions/029_2026-05-09.md), Eskalation 1 aus S027.
-Direkte Schwester von BL-03 — gleiches Skript-Skelett, **ohne**
-``anki_id``-Snapshot (CulturalEntries haben keine Anki-Karten).
+Source: brief 029 (sessions/029_2026-05-09.md), escalation 1 from S027.
+Direct sibling of BL-03 — same script skeleton, **without** the ``anki_id``
+snapshot (CulturalEntries have no Anki cards).
 
-Was die Migration tut
-=====================
-Walkt ``wiki/language/culture/c_*.md``. Fuer jedes File:
+What the migration does
+=======================
+Walks ``wiki/language/culture/c_*.md``. For each file:
 
-1. ``_split`` trennt Frontmatter und Body.
-2. ``agents.frontmatter._normalize_legacy_fm`` dedented + repariert
-   ``key: ?`` (BL-03-Pfad).
-3. **Migration-lokale Repair-Pfade:**
-   - Triple-Bracket-Strip: ``[[[X]]]`` -> ``"[[X]]"`` (Obsidian-Defekt;
-     ohne Quotes wuerde YAML ``[[X]]`` als verschachtelte Flow-Liste lesen).
-   - Re-Indent fuer aus-dem-Block-gefallene Listen-Eintraege: erste
-     ``- ``-Zeile unter einem ``key:``-Opener setzt den Item-Indent;
-     nachfolgende ``- ``-Items snappen darauf, Continuation-``key:``-Zeilen
-     auf Item-Indent + 2.
-4. ``yaml.safe_load`` parst das reparierte YAML.
-5. ``render(fm, body)`` schreibt das File zurueck (Body byte-identisch nach
-   FM-Trennung; Property-Reihenfolge erhalten via ``sort_keys=False``).
+1. ``_split`` separates frontmatter and body.
+2. ``agents.frontmatter._normalize_legacy_fm`` dedents and repairs
+   ``key: ?`` (BL-03 path).
+3. **Migration-local repair paths:**
+   - Triple-bracket strip: ``[[[X]]]`` -> ``"[[X]]"`` (an Obsidian defect;
+     without quotes YAML would read ``[[X]]`` as a nested flow list).
+   - Re-indent for list items that fell out of their block: the first
+     ``- `` line under a ``key:`` opener sets the item indent; following
+     ``- `` items snap to it, continuation ``key:`` lines to item indent + 2.
+4. ``yaml.safe_load`` parses the repaired YAML.
+5. ``render(fm, body)`` writes the file back (body byte-identical after the
+   FM split; property order preserved via ``sort_keys=False``).
 
-Was die Migration NICHT tut
-===========================
-- **Body-Inhalt aendern.** Auch eingerueckter Body-Text bleibt erhalten
-  (Brief S026/S027-Regel; die Body-Indentation ist Renderer-Frage und
-  gehoert zu BL-05 oder einer separaten Body-Indent-Migration).
-- **anki_id anfassen.** CulturalEntries haben keine Anki-Karten; der
-  Snapshot-Schritt aus QK-8 entfaellt explizit.
-- **agents.frontmatter erweitern.** Triple-Bracket-Strip + Popped-List-
-  Re-Indent leben **hier**, nicht in der zentralen API (Brief 029
-  Scope-Schutz Punkt 2). Tritt das Defekt-Muster ein zweites Mal auf,
-  ist eine API-Erweiterung Architekt-Eskalation an PO.
-- **Andere Entry-Typen anfassen.** Nur ``wiki/language/culture/c_*.md``.
+What the migration does NOT do
+==============================
+- **Change body content.** Even indented body text is preserved (rule from
+  briefs S026/S027; body indentation is a renderer question and belongs to
+  BL-05 or a separate body-indent migration).
+- **Touch anki_id.** CulturalEntries have no Anki cards; the snapshot step
+  from QK-8 is explicitly dropped.
+- **Extend agents.frontmatter.** The triple-bracket strip and the popped-list
+  re-indent live **here**, not in the central API (brief 029, scope
+  protection point 2). If the defect pattern shows up a second time, an API
+  extension is an architect escalation to the PO.
+- **Touch other entry types.** Only ``wiki/language/culture/c_*.md``.
 
-Pflicht-Auflagen
-================
-1. **Backup-Branch** ``backup/pre-cultural-frontmatter-migration`` muss
-   existieren, sonst bricht das Skript ab. ``require_backup_branch=False``
-   nur fuer Tests.
-2. **Idempotenz:** zweiter Lauf liefert ``changed == []``.
+Mandatory requirements
+======================
+1. The **backup branch** ``backup/pre-cultural-frontmatter-migration`` must
+   exist, otherwise the script aborts. ``require_backup_branch=False`` only
+   for tests.
+2. **Idempotency:** a second run returns ``changed == []``.
 
-Aufruf
-======
+Usage
+=====
 ::
 
     python scripts/migrations/2026-05-09_cultural_frontmatter.py
@@ -94,31 +93,31 @@ def _culture_files(wiki_root: Path) -> list[Path]:
 
 
 def _strip_triple_brackets(fm_text: str) -> str:
-    """Konvertiere ``[[[X]]]`` in den quoted Wikilink ``"[[X]]"``.
+    """Convert ``[[[X]]]`` into the quoted wikilink ``"[[X]]"``.
 
-    Reines ``[[X]]`` waere YAML-flow-list-of-list (parst zu ``[['X']]``),
-    deshalb Double-Quotes statt Single-Quotes — die rohe Wikilink-Form
-    enthaelt keine Double-Quotes, also kein Escape noetig.
+    A bare ``[[X]]`` would be a YAML flow list of lists (parses to ``[['X']]``),
+    hence double quotes rather than single quotes; the raw wikilink form
+    contains no double quotes, so no escaping is needed.
     """
     return _TRIPLE_BRACKET_RE.sub(r'"[[\1]]"', fm_text)
 
 
 def _repair_popped_list(fm_text: str) -> str:
-    """Re-anker Listen-Eintraege, die aus ihrem Parent-Block gepoppt sind.
+    """Re-anchor list items that popped out of their parent block.
 
-    Heuristik:
-    - Ein ``key:``-Opener (Zeile = nur ``key:`` ohne Wert) startet einen Block
-      mit Parent-Indent = Leading-Whitespace.
-    - Die erste ``- ``-Zeile unter dem Opener definiert den Item-Indent.
-    - Nachfolgende ``- ``-Items werden auf den Item-Indent gesnappt.
-    - Continuation-``key:``-Zeilen (Mapping-Schluessel ohne ``- ``-Prefix)
-      werden auf Item-Indent + 2 gesnappt.
-    - Block endet bei: Leerzeile ODER neue Top-Level-``key:``-Zeile mit
-      Indent <= Parent-Indent.
+    Heuristic:
+    - A ``key:`` opener (a line with only ``key:`` and no value) starts a
+      block with parent indent = its leading whitespace.
+    - The first ``- `` line under the opener defines the item indent.
+    - Following ``- `` items are snapped to the item indent.
+    - Continuation ``key:`` lines (mapping keys without a ``- `` prefix)
+      are snapped to item indent + 2.
+    - The block ends at an empty line OR a new top-level ``key:`` line with
+      indent <= parent indent.
 
-    Auf bereits sauberem YAML (Post-render-Output) ist die Funktion
-    fixpunkt-stabil: erste ``- ``-Zeile setzt Item-Indent = Leading, und
-    nachfolgende Zeilen ueberschreiben sich selbst mit identischem Indent.
+    On already clean YAML (post-render output) the function is a fixed
+    point: the first ``- `` line sets item indent = its leading whitespace,
+    and the following lines overwrite themselves with the same indent.
     """
     lines = fm_text.splitlines()
     out: list[str] = []
@@ -131,7 +130,7 @@ def _repair_popped_list(fm_text: str) -> str:
         stripped = stripped_left.rstrip()
         leading = len(raw) - len(stripped_left)
 
-        # Block end: leere Zeile.
+        # Block end: empty line.
         if in_block and not stripped:
             in_block = False
             out.append(raw)
@@ -140,7 +139,7 @@ def _repair_popped_list(fm_text: str) -> str:
         # Block end / new top-level key.
         if in_block and leading <= parent_indent and _KV_RE.match(raw):
             in_block = False
-            # falls der neue Key selbst wieder Block-Opener ist, sofort re-aktivieren
+            # if the new key is itself a block opener, re-activate right away
             if _KEY_OPENER_RE.match(raw):
                 in_block = True
                 parent_indent = leading
@@ -157,7 +156,7 @@ def _repair_popped_list(fm_text: str) -> str:
 
         if in_block and _LIST_ITEM_RE.match(raw):
             if item_indent is None:
-                # Erstes Item legt den Anker fest.
+                # The first item sets the anchor.
                 item_indent = leading
             out.append(" " * item_indent + stripped_left)
             continue
@@ -177,7 +176,7 @@ def _repair_popped_list(fm_text: str) -> str:
 
 
 def _repair_culture_fm(fm_raw: str) -> str:
-    """Voller Repair-Pfad: dedent + bare-? + Triple-Bracket-Strip + Re-Indent."""
+    """Full repair path: dedent + bare ? + triple-bracket strip + re-indent."""
     norm = _normalize_legacy_fm(fm_raw)
     norm = _strip_triple_brackets(norm)
     norm = _repair_popped_list(norm)
@@ -204,14 +203,14 @@ def run(
     dry_run: bool = False,
     update_log: bool = True,
 ) -> dict:
-    """Execute migration. Siehe Modul-Docstring fuer Invarianten.
+    """Execute the migration. See the module docstring for invariants.
 
     Returns ``{"changed": [...], "skipped": [...]}``.
     """
     root = wiki_root or REPO_ROOT
     if require_backup_branch and not _branch_exists(root, BACKUP_BRANCH):
         raise RuntimeError(
-            f"Backup-Branch '{BACKUP_BRANCH}' fehlt. Vor Lauf erzeugen: "
+            f"Backup branch '{BACKUP_BRANCH}' is missing. Create it before running: "
             f"git branch {BACKUP_BRANCH}"
         )
 
@@ -225,11 +224,11 @@ def run(
             skipped.append(f"{path.relative_to(root)} (no frontmatter)")
             continue
 
-        # BL-03-Pattern: erst sauberen Parse versuchen (Idempotenz auf bereits
-        # migrierten Files). Nur wenn das fehlschlaegt, den Migration-Repair-Pfad
-        # zuenden — denn _normalize_legacy_fm wuerde die 2-Space-Continuation-
-        # Indents im sauberen Output als haeufigsten Prefix erkennen und strippen,
-        # was Block-Mappings unter Listen-Items aufbricht.
+        # BL-03 pattern: try a clean parse first (idempotency on files that are
+        # already migrated). Only if that fails, use the migration repair path,
+        # because _normalize_legacy_fm would see the 2-space continuation
+        # indents in clean output as the most common prefix and strip them,
+        # which breaks block mappings under list items.
         fm = None
         try:
             fm = yaml.safe_load(fm_raw)
@@ -269,9 +268,9 @@ def run(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dry-run", action="store_true",
-                        help="Nur planen, nicht schreiben.")
+                        help="Plan only, do not write.")
     parser.add_argument("--skip-backup-check", action="store_true",
-                        help="Pre-Backup-Check ueberspringen (nur Tests/Local).")
+                        help="Skip the backup branch check (tests/local only).")
     args = parser.parse_args(argv)
 
     try:

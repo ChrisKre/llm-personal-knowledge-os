@@ -1,15 +1,15 @@
-"""BL-03: Tests fuer Frontmatter-YAML-Migration.
+"""BL-03: tests for the frontmatter YAML migration.
 
-Drei Pflicht-Pruefungen aus QM-Auflage QK-8 (Workshop S025):
+Three mandatory checks from QM requirement QK-8 (workshop S025):
 
-- **Format-Korrektheit:** das migrierte Frontmatter ist mit ``yaml.safe_load``
-  ohne Workaround parsbar.
-- **anki_id-Erhaltung:** kein einziger Wert aendert sich vor/nach Migration
-  (ENT-052; SRS-State-Erhaltung).
-- **Idempotenz:** zweiter Lauf gegen migrierten Stand schreibt nichts.
+- **Format correctness:** the migrated frontmatter parses with
+  ``yaml.safe_load`` without workarounds.
+- **anki_id preservation:** not a single value changes before/after the
+  migration (ENT-052; preserves the spaced-repetition state).
+- **Idempotency:** a second run against the migrated state writes nothing.
 
-Fixtures: ``tests/migrations/fixtures/before/`` (Snapshot der 7 Vocab-Files vor
-Migration) und ``fixtures/after/`` (Soll-Zustand nach Migration).
+Fixtures: ``tests/migrations/fixtures/before/`` (snapshot of the 7 vocab files
+before the migration) and ``fixtures/after/`` (target state after migration).
 """
 
 from __future__ import annotations
@@ -72,7 +72,7 @@ def test_anki_id_preservation(staged_repo: Path):
     result = mod.run(staged_repo, require_backup_branch=False, dry_run=False, update_log=False)
 
     assert result["anki_ids"] == snap["pre"], (
-        "anki_ids veraendert! pre vs result siehe Diff."
+        "anki_ids changed! See the diff of pre vs. result."
     )
     assert snap["pre"] == snap["post"], (
         "anki_id-Snapshot inkonsistent (pre != post). Migration nicht akzeptierbar."
@@ -86,23 +86,23 @@ def test_idempotent_second_run_changes_nothing(staged_repo: Path):
 
     second = mod.run(staged_repo, require_backup_branch=False, dry_run=False, update_log=False)
     assert second["changed"] == [], (
-        f"Migration nicht idempotent. Zweiter Lauf veraendert: {second['changed']}"
+        f"Migration not idempotent. Second run changed: {second['changed']}"
     )
 
 
 def test_backup_branch_check_aborts_when_missing(staged_repo: Path):
-    """Backup-Branch-Check als Pflicht-Pre-Step (QK-8.1).
+    """Backup branch check as a mandatory pre-step (QK-8.1).
 
-    ``staged_repo`` ist kein Git-Repo, also schlaegt der Branch-Check fehl,
-    wenn ``require_backup_branch=True``.
+    ``staged_repo`` is not a git repo, so the branch check fails when
+    ``require_backup_branch=True``.
     """
     mod = _load_migration()
-    with pytest.raises(RuntimeError, match="Backup-Branch"):
+    with pytest.raises(RuntimeError, match="Backup branch"):
         mod.run(staged_repo, require_backup_branch=True, dry_run=False, update_log=False)
 
 
 def test_after_fixtures_match_post_migration_output(staged_repo: Path):
-    """fixtures/after/ ist der eingefrorene Soll-Zustand fuer die 7 Vocab-Files."""
+    """fixtures/after/ is the frozen target state for the 7 vocab files."""
     mod = _load_migration()
     mod.run(staged_repo, require_backup_branch=False, dry_run=False, update_log=False)
 
@@ -115,13 +115,13 @@ def test_after_fixtures_match_post_migration_output(staged_repo: Path):
 
 
 def test_body_content_preserved(staged_repo: Path):
-    """Migration darf NUR Frontmatter aendern; Body-Inhalt bleibt erhalten.
+    """The migration may ONLY change frontmatter; body content is preserved.
 
-    Vergleicht Body-Strings via ``agents.frontmatter.parse`` (handhabt sowohl
-    den indentierten Legacy-Delimiter als auch den sauberen Post-Migrations-
-    Delimiter). Fuehrendes Whitespace wird gestripped, weil ``render`` einen
-    festen ``\\n\\n``-Abstand zwischen FM und Body normalisiert (Brief S026:
-    Body-*Inhalt* bleibt; Spacing ist unkritisch).
+    Compares body strings via ``agents.frontmatter.parse`` (handles both the
+    indented legacy delimiter and the clean post-migration delimiter). Leading
+    whitespace is stripped because ``render`` normalizes a fixed ``\\n\\n``
+    gap between FM and body (brief S026: the body *content* is kept; spacing
+    doesn't matter).
     """
     from agents.frontmatter import parse as fm_parse
     mod = _load_migration()
@@ -137,5 +137,5 @@ def test_body_content_preserved(staged_repo: Path):
         after_text = (migrated_dir / name).read_text(encoding="utf-8")
         after_body = fm_parse(after_text)[1].strip()
         assert after_body == before_body, (
-            f"{name}: Body-Inhalt wurde von der Migration veraendert (verboten)."
+            f"{name}: body content was changed by the migration (forbidden)."
         )

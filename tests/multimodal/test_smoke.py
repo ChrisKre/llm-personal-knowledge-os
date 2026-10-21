@@ -1,4 +1,4 @@
-"""Smoke-Test: Multi-Modal-Extraktoren-Verzeichnis existiert (BL-08 Pre-Req)."""
+"""Smoke test: the multi-modal extractors directory exists (BL-08 prerequisite)."""
 
 from pathlib import Path
 

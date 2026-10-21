@@ -1,41 +1,41 @@
-"""Migration 2026-05-09: Frontmatter-YAML-Sanitization (BL-03).
+"""Migration 2026-05-09: frontmatter YAML sanitization (BL-03).
 
-Quelle: Workshop S025 BL-03, QM-Auflage QK-8.
+Source: workshop S025 BL-03, QM requirement QK-8.
 
-Was die Migration tut
-=====================
-Liest jede ``wiki/language/vocab/v_*.md`` mit ``status: elaborated``, parst das
-Frontmatter ueber den Legacy-tolerant ``agents.frontmatter`` Helper, rendert es
-ueber denselben Helper zurueck (``yaml.dump`` mit ``sort_keys=False``,
-``allow_unicode=True``, ``default_flow_style=False``) und schreibt das File
-genau dann zurueck, wenn sich der Inhalt aendern wuerde.
-
-Was die Migration NICHT tut
-===========================
-- **Body-Inhalt aendern.** Auch eingerueckter Body-Text bleibt byte-identisch
-  erhalten (Brief S026: "Migration darf Frontmatter umbauen, Body nicht").
-- **anki_id neu generieren.** Der Wert wird gelesen und identisch
-  zurueckgeschrieben (ENT-052; SRS-State-Erhaltung).
-- **Andere VocabEntry-Status anfassen.** Nur ``elaborated``.
-- **Andere Entry-Typen anfassen** (LanguageBridge, CulturalEntry). Diese koennen
-  denselben Defekt haben (siehe technischer_hinweis), gehoeren aber laut
-  Backlog-Reihenfolge nicht zu BL-03.
-
-Pflicht-Auflagen (QK-8)
+What the migration does
 =======================
-1. **Backup-Branch ``backup/pre-frontmatter-migration``** muss existieren, sonst
-   bricht das Skript ab. ``require_backup_branch=False`` nur fuer Tests.
-2. **Idempotenz:** zweiter Lauf liefert ``changed == []``.
-3. **anki_id-Snapshot-Pflicht:** ``run()`` returnt pre-/post-Hashes; der Operator
-   speichert sie in ``tests/migrations/anki_id_snapshot.json`` und vergleicht
-   sie. Ein einziges geaendertes ``anki_id`` ist abbruchwuerdig.
+Reads every ``wiki/language/vocab/v_*.md`` with ``status: elaborated``, parses
+the frontmatter with the legacy-tolerant ``agents.frontmatter`` helper, renders
+it back through the same helper (``yaml.dump`` with ``sort_keys=False``,
+``allow_unicode=True``, ``default_flow_style=False``) and writes the file back
+only if the content would change.
 
-Aufruf
-======
+What the migration does NOT do
+==============================
+- **Change body content.** Even indented body text stays byte-identical
+  (brief S026: "the migration may rebuild frontmatter, not the body").
+- **Regenerate anki_id.** The value is read and written back unchanged
+  (ENT-052; preserves the spaced-repetition state).
+- **Touch other VocabEntry statuses.** Only ``elaborated``.
+- **Touch other entry types** (LanguageBridge, CulturalEntry). They may have
+  the same defect (see technischer_hinweis), but by backlog order they are not
+  part of BL-03.
+
+Mandatory requirements (QK-8)
+=============================
+1. The **backup branch ``backup/pre-frontmatter-migration``** must exist,
+   otherwise the script aborts. ``require_backup_branch=False`` only for tests.
+2. **Idempotency:** a second run returns ``changed == []``.
+3. **Mandatory anki_id snapshot:** ``run()`` returns pre/post hashes; the
+   operator stores them in ``tests/migrations/anki_id_snapshot.json`` and
+   compares them. A single changed ``anki_id`` is reason to abort.
+
+Usage
+=====
 ::
 
     python scripts/migrations/2026-05-09_frontmatter_yaml.py             # live
-    python scripts/migrations/2026-05-09_frontmatter_yaml.py --dry-run   # Plan
+    python scripts/migrations/2026-05-09_frontmatter_yaml.py --dry-run   # plan
 """
 
 from __future__ import annotations
@@ -102,7 +102,7 @@ def run(
     root = wiki_root or REPO_ROOT
     if require_backup_branch and not _branch_exists(root, BACKUP_BRANCH):
         raise RuntimeError(
-            f"Backup-Branch '{BACKUP_BRANCH}' fehlt. Vor Lauf erzeugen: "
+            f"Backup branch '{BACKUP_BRANCH}' is missing. Create it before running: "
             f"git branch {BACKUP_BRANCH}"
         )
 
@@ -142,9 +142,9 @@ def run(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--dry-run", action="store_true",
-                        help="Nur planen, nicht schreiben.")
+                        help="Plan only, do not write.")
     parser.add_argument("--skip-backup-check", action="store_true",
-                        help="Pre-Backup-Check ueberspringen (nur Tests/Local).")
+                        help="Skip the backup branch check (tests/local only).")
     args = parser.parse_args(argv)
 
     try:

@@ -1,20 +1,22 @@
-"""BL-16 / QK-21a: Stufe-0-Pfade der Clippings-Ingestion, deterministisch.
+"""BL-16 / QK-21a: stage 0 paths of clippings ingestion, deterministic.
 
-Mini-Korpus aus **synthetischen** Fixtures (Brief 032 Schritt 4 — nicht die
-echten Clippings kopieren), gebaut pro Test in ``tmp_path`` (Muster
-``test_topicpage_index.py``). Abgedeckt:
+A mini corpus of **synthetic** fixtures (brief 032 step 4 — never copy real
+clippings), built per test in ``tmp_path`` (pattern from
+``test_topicpage_index.py``). Covered:
 
-- Dupe-Clip-Muster: gleiche Video-ID, verschiedene ``&t=`` → ID-Dupe.
-- NEARDUPE-Muster: Near-Dupe via ``SequenceMatcher >= 0,9``.
-- Byte-identisches Paar (Preply-Muster).
-- No-Frontmatter-File → Titel aus Dateiname, ``sha1:``-ID (LONGDOC-Muster).
-- ``.html``-File → Format-Weiche, bs4-Textextraktion.
-- Leer-Clip (< 150 Woerter) → ``empty_clip``.
-- Frontmatter ohne ``source``-URL → ``not_a_clipping`` (QM R12).
-- Idempotenz: zweiter Lauf gegen volles Ledger filtert alles → nothing to do.
-- Ledger-Rekonstruktion aus Fixture-TopicPage (Selbstheilung 02 §B2).
-- Dry-run schreibt nichts (kein Ledger-Eintrag, Quell-Bytes unveraendert).
-- Live-Lauf ohne Backup-Branch → Abbruch (RuntimeError).
+- Dupe clip pattern: same video ID, different ``&t=`` → ID dupe.
+- Near-dupe pattern: near dupe via ``SequenceMatcher >= 0.9``.
+- Byte-identical pair.
+- File without frontmatter → title from the file name, ``sha1:`` ID (long report pattern).
+- ``.html`` file → format switch, bs4 text extraction.
+- Empty clip (< 150 words) → ``empty_clip``.
+- Frontmatter without a ``source`` URL → ``not_a_clipping`` (QM R12).
+- Idempotency: a second run against a full ledger filters everything → nothing to do.
+- Ledger reconstruction from a fixture TopicPage (self-healing 02 §B2).
+- A dry run writes nothing (no ledger entry, source bytes unchanged).
+- A live run without the backup branch → abort (RuntimeError).
+
+Fixture bodies are German on purpose (realistic clip text).
 """
 
 from __future__ import annotations
@@ -64,12 +66,11 @@ def _by_name(result: dict) -> dict[str, object]:
 
 
 # ---------------------------------------------------------------------------
-# Extractor-Vertrag (a)–(f)
+# Extractor contract (a)–(f)
 # ---------------------------------------------------------------------------
 
 def test_canonical_id_youtube_strips_fragments() -> None:
-    """(a): Dupe-Clip-Falle — ``&t=…``/``&list=…`` duerfen die ID nicht
-    aufspalten."""
+    """(a): dupe clip trap — ``&t=…``/``&list=…`` must not split the ID."""
     variants = [
         "https://www.youtube.com/watch?v=dupeVideo01&t=50s",
         "https://www.youtube.com/watch?v=dupeVideo01&t=55s",
@@ -85,14 +86,14 @@ def test_canonical_id_url_normalized() -> None:
     assert canonical_id_from_source(
         "https://Example.com/pfad/?utm_source=x#frag"
     ) == "url:example.com/pfad"
-    # Nicht-URL / leer → keine ID (R12-Input).
+    # Not a URL / empty → no ID (R12 input).
     assert canonical_id_from_source("") is None
     assert canonical_id_from_source("kein link") is None
 
 
 def test_no_frontmatter_fallback_sha1(tmp_path: Path) -> None:
-    """(b): LONGDOC-Muster — kein FM, aber substantieller Body → sha1:-ID,
-    Titel aus Dateiname, bleibt nutzbar."""
+    """(b): long report pattern — no FM but a substantial body → sha1: ID,
+    title from the file name, stays usable."""
     p = _write(tmp_path, "Langbericht_Fixture.md",
                "# Fachbericht\n\n" + LONG_BODY)
     rec = extract_clip(p, tmp_path)
@@ -102,7 +103,7 @@ def test_no_frontmatter_fallback_sha1(tmp_path: Path) -> None:
 
 
 def test_html_format_weiche(tmp_path: Path) -> None:
-    """(c): .html wird geparst (bs4), Script/Style fliegen raus."""
+    """(c): .html is parsed (bs4); script/style are dropped."""
     html = ("<!DOCTYPE html><html><head><title>Long Report</title>"
             "<script>ignorier();</script></head><body><h1>Therapie</h1><p>"
             + LONG_BODY + "</p></body></html>")
@@ -116,7 +117,7 @@ def test_html_format_weiche(tmp_path: Path) -> None:
 
 
 def test_empty_clip_filter(tmp_path: Path) -> None:
-    """(d): Body < 150 Woerter → empty_clip (Fehl-Clip-Muster)."""
+    """(d): body < 150 words → empty_clip (failed clip pattern)."""
     p = _write(tmp_path, "fehlclip.md",
                _clip("https://www.youtube.com/watch?v=EpgY5iE4rhX",
                      "nur ein paar worte"))
@@ -127,8 +128,8 @@ def test_empty_clip_filter(tmp_path: Path) -> None:
 
 
 def test_not_a_clipping_fm_without_source(tmp_path: Path) -> None:
-    """(f)/R12: FM vorhanden, aber ohne source-URL → not_a_clipping —
-    die manuelle Notiz im Mount, die der Scan nie in die Pipeline geben darf."""
+    """(f)/R12: FM present but without a source URL → not_a_clipping —
+    a manual note in the mount that the scan must never feed into the pipeline."""
     p = _write(tmp_path, "notiz.md",
                "---\ntitle: Manuelle Notiz\ncreated: 2026-07-01\n---\n"
                + LONG_BODY)
@@ -138,12 +139,12 @@ def test_not_a_clipping_fm_without_source(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Dedup dreistufig
+# Three-stage dedup
 # ---------------------------------------------------------------------------
 
 def test_dedup_same_video_id(tmp_path: Path) -> None:
-    """Dupe-Clip-Paar: gleiche Video-ID, verschiedene ``&t=`` →
-    ID-Dupe; Keeper = fruehestes ``created``."""
+    """Dupe clip pair: same video ID, different ``&t=`` →
+    ID dupe; keeper = earliest ``created``."""
     _write(tmp_path, "DupeClip.md",
            _clip("https://www.youtube.com/watch?v=dupeVideo01&t=50s",
                  LONG_BODY, created="2026-06-02"))
@@ -159,7 +160,7 @@ def test_dedup_same_video_id(tmp_path: Path) -> None:
 
 
 def test_dedup_byte_identical(tmp_path: Path) -> None:
-    """Preply-Muster: byte-identische Files → byte-Dupe."""
+    """Byte-identical files → byte dupe."""
     text = _clip("https://example.com/lesson/1", LONG_BODY)
     _write(tmp_path, "Preply.md", text)
     _write(tmp_path, "Preply 1.md", text)
@@ -171,8 +172,8 @@ def test_dedup_byte_identical(tmp_path: Path) -> None:
 
 
 def test_dedup_near_dupe_sequencematcher(tmp_path: Path) -> None:
-    """NEARDUPE-Muster: verschiedene URLs, Body-Aehnlichkeit >= 0,9 →
-    near-Dupe."""
+    """Near-dupe pattern: different URLs, body similarity >= 0.9 →
+    near dupe."""
     _write(tmp_path, "Tips.md",
            _clip("https://www.youtube.com/watch?v=aaaaaaaaaaa",
                  NEAR_BODY_A, created="2026-04-18"))
@@ -187,7 +188,7 @@ def test_dedup_near_dupe_sequencematcher(tmp_path: Path) -> None:
 
 
 def test_distinct_clips_stay_usable(tmp_path: Path) -> None:
-    """Gegenprobe: zwei verschiedene Clips bleiben beide nutzbar."""
+    """Counter-check: two different clips both stay usable."""
     _write(tmp_path, "A.md",
            _clip("https://www.youtube.com/watch?v=aaaaaaaaaaa", LONG_BODY))
     _write(tmp_path, "B.md",
@@ -200,12 +201,12 @@ def test_distinct_clips_stay_usable(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Ledger: Idempotenz, Selbstheilung, Dry-run-Guard, Backup-Branch
+# Ledger: idempotency, self-healing, dry-run guard, backup branch
 # ---------------------------------------------------------------------------
 
 def test_idempotenz_second_run_filters_all(tmp_path: Path) -> None:
-    """02 §B2: alle IDs geledgert → zweiter Lauf filtert alles,
-    „nothing to do"."""
+    """02 §B2: all IDs ledgered → the second run filters everything,
+    "nothing to do"."""
     _write(tmp_path, "A.md",
            _clip("https://www.youtube.com/watch?v=aaaaaaaaaaa", LONG_BODY))
     _write(tmp_path, "B.md",
@@ -217,7 +218,7 @@ def test_idempotenz_second_run_filters_all(tmp_path: Path) -> None:
     assert first["counts"]["usable"] == 1
     assert not first["nothing_to_do"]
 
-    # Simulierter Abschluss: alle kanonischen IDs geledgert (merged/skipped).
+    # Simulated completion: all canonical IDs ledgered (merged/skipped).
     save_ledger({
         "yt:aaaaaaaaaaa": {"status": "merged", "reason": "",
                            "topic_pages": ["tp_x"], "ts": "t"},
@@ -232,8 +233,8 @@ def test_idempotenz_second_run_filters_all(tmp_path: Path) -> None:
 
 
 def test_ledger_reconstruction_from_topicpage(tmp_path: Path) -> None:
-    """Selbstheilung: ``sources[].id`` einer Fixture-TopicPage (R9-Muster
-    aus S031) → rekonstruiertes Ledger; leeres ``wiki/topics/`` → leer."""
+    """Self-healing: ``sources[].id`` of a fixture TopicPage (R9 pattern
+    from S031) → reconstructed ledger; empty ``wiki/topics/`` → empty."""
     assert reconstruct_ledger(tmp_path) == {}
 
     topics = tmp_path / "wiki" / "topics"
@@ -264,7 +265,7 @@ def test_ledger_reconstruction_from_topicpage(tmp_path: Path) -> None:
 
 
 def test_dry_run_writes_nothing(tmp_path: Path) -> None:
-    """DoD 2: Dry-run — kein Ledger-Eintrag, Quell-File byte-identisch."""
+    """DoD 2: dry run — no ledger entry, source file byte-identical."""
     src = _write(tmp_path, "A.md",
                  _clip("https://www.youtube.com/watch?v=aaaaaaaaaaa",
                        "kurz"))
@@ -275,14 +276,14 @@ def test_dry_run_writes_nothing(tmp_path: Path) -> None:
     assert result["ledger_written"] == []
     assert not ledger_path.exists()
     assert src.read_bytes() == before
-    # Plan + Report sind trotzdem da (Build-Artefakte, ENT-054-Pattern).
+    # Plan + report exist anyway (build artifacts, ENT-054 pattern).
     assert result["plan_path"].exists()
     assert result["report_path"].exists()
 
 
 def test_live_requires_backup_branch(tmp_path: Path) -> None:
-    """Schritt 3.3: Live ohne ``backup/pre-clippings-batch`` → Abbruch.
-    (tmp_path ist kein git-Repo → Branch existiert sicher nicht.)"""
+    """Step 3.3: live without ``backup/pre-clippings-batch`` → abort.
+    (tmp_path is not a git repo → the branch certainly does not exist.)"""
     _write(tmp_path, "A.md",
            _clip("https://www.youtube.com/watch?v=aaaaaaaaaaa", LONG_BODY))
     with pytest.raises(RuntimeError, match="backup/pre-clippings-batch"):
@@ -290,9 +291,9 @@ def test_live_requires_backup_branch(tmp_path: Path) -> None:
 
 
 def test_live_ledgers_definitive_skips_only(tmp_path: Path) -> None:
-    """Live: empty_clip/near-Dupe werden geledgert; eine Dupe-ID, die der
-    Keeper teilt (DupeClip-Fall), wird NIE geledgert — sonst filtert der
-    naechste Lauf den Keeper mit."""
+    """Live: empty_clip/near dupes are ledgered; a dupe ID shared with the
+    keeper (DupeClip case) is NEVER ledgered, otherwise the next run would
+    filter out the keeper too."""
     _write(tmp_path, "DupeClip.md",
            _clip("https://www.youtube.com/watch?v=dupeVideo01&t=50s",
                  LONG_BODY, created="2026-06-02"))
@@ -307,7 +308,7 @@ def test_live_ledgers_definitive_skips_only(tmp_path: Path) -> None:
                   ledger_path=ledger_path)
     assert result["ledger_written"] == ["yt:ccccccccccc"]
     ledger = load_ledger(ledger_path)
-    assert "yt:dupeVideo01" not in ledger  # Keeper-Schutz
+    assert "yt:dupeVideo01" not in ledger  # keeper protection
 
     again = _run(tmp_path, ledger_path=ledger_path)
     recs = _by_name(again)
@@ -316,7 +317,7 @@ def test_live_ledgers_definitive_skips_only(tmp_path: Path) -> None:
 
 
 def test_plan_json_roundtrip(tmp_path: Path) -> None:
-    """Inventory-Plan ist valides JSON mit Zaehlung + Clip-Eintraegen."""
+    """The inventory plan is valid JSON with counts + clip entries."""
     _write(tmp_path, "A.md",
            _clip("https://www.youtube.com/watch?v=aaaaaaaaaaa", LONG_BODY))
     result = _run(tmp_path)

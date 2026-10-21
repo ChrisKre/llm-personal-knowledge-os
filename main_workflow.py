@@ -1,6 +1,6 @@
-"""main_workflow.py — LangGraph Hauptgraph des LLM-Personal-Knowledge-OS.
+"""main_workflow.py — main LangGraph graph of the LLM-Personal-Knowledge-OS.
 
-Verbindet alle Nodes nach ARCHITECTURE.md §5.1:
+Connects all nodes as described in doc/ARCHITECTURE.md §6.1:
   classify → fetch_graph_context → [diary|language|...] → supervisor_review
   → write_to_graph → update_index
 """
@@ -194,8 +194,8 @@ def build_workflow(wiki_root: Path = VAULT_ROOT):
     """Build and compile the LangGraph workflow. Call once at startup.
 
     Provider selection (automatic):
-      ANTHROPIC_API_KEY set   → Claude Haiku/Sonnet (Produktion)
-      ANTHROPIC_API_KEY unset → Ollama lokal (Tests, kein API-Key nötig)
+      ANTHROPIC_API_KEY set   → Claude Haiku/Sonnet (production)
+      ANTHROPIC_API_KEY unset → local Ollama (tests, no API key needed)
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if api_key:
@@ -203,8 +203,8 @@ def build_workflow(wiki_root: Path = VAULT_ROOT):
     else:
         import logging as _logging
         _logging.getLogger(__name__).warning(
-            "ANTHROPIC_API_KEY nicht gesetzt — Ollama-Fallback aktiv. "
-            "Setze OLLAMA_MODEL und stelle sicher dass `ollama serve` läuft."
+            "ANTHROPIC_API_KEY not set — Ollama fallback active. "
+            "Set OLLAMA_MODEL and make sure `ollama serve` is running."
         )
         client = None
 

@@ -147,8 +147,8 @@ def _search_index_md(
     results: list[tuple[float, WikiPage]] = []
 
     # index.md format:
-    #   ## PersonalFacts (12)
-    #   - [[pf_2026-03-15_fahrrad-unfall]] — Unfall in München, story_score: 8
+    #   ## PersonalFacts (3)
+    #   - [[pf_2026-03-22_first-burnt-socarrat]] — first burnt socarrat, story_score: 7
     current_section_type = ""
     section_re = re.compile(r"^## (.+?) \(\d+\)", re.MULTILINE)
     entry_re = re.compile(r"- \[\[(.+?)\]\](?: — (.+))?$")
@@ -306,8 +306,8 @@ def _normalize_type(section_title: str) -> str:
         "concepts": "Concept",
         "styleprofiles": "StyleProfile",
         "topicpages": "TopicPage",
-        # Sammel-Typ der human-owned Familie (SCHEMA §3.10) — Index-Sektion
-        # buendelt HealthProtocol/HealthReview/DeepResearchPrompt.
+        # Umbrella type of the human-owned family (SCHEMA §3.10): this index
+        # section groups HealthProtocol/HealthReview/DeepResearchPrompt.
         "human-owned (health)": "HumanOwned",
     }
     return mapping.get(section_title.lower(), section_title)

@@ -15,41 +15,41 @@ class WikiWrite(TypedDict):
     operation: str   # "create" | "update" | "append"
 
 
-# Human-owned Zonen (SCHEMA §2, ENT-062) — Verzeichnisse, in die die KI nie
-# schreibt. Single-Source: Guard (assert_writable) und Konsistenz-Detektor
-# (find_zone_owner_violations) lesen beide diese Liste.
+# Human-owned zones (SCHEMA §2, ENT-062): directories the AI never writes to.
+# Single source: the guard (assert_writable) and the consistency detector
+# (find_zone_owner_violations) both read this list.
 HUMAN_OWNED_ZONES: tuple[str, ...] = ("wiki/personal/health/",)
 
 
 class HumanOwnedZoneError(Exception):
-    """Write-Versuch in eine deklarierte human-owned Zone (Axiom-2-Carve-out)."""
+    """Attempt to write into a declared human-owned zone (axiom 2 carve-out)."""
 
 
 def assert_writable(path: str) -> None:
-    """Geteilte Zonen-Prüfung vor jedem Datei-Write (ENT-062, QK-19).
+    """Shared zone check before every file write (ENT-062, QK-19).
 
-    Wird von execute_writes() aufgerufen und muss von jedem künftigen
-    Write-Pfad (z.B. BL-07-Lint-Auto-Fixes) vor dem Schreiben importiert
-    und aufgerufen werden — kein zweiter Zonen-Check-Codepfad.
+    Called by execute_writes(). Every future write path (e.g. BL-07 lint
+    auto-fixes) must import and call it before writing; there is no second
+    zone-check code path.
 
-    Raises HumanOwnedZoneError für Pfade in einer deklarierten Zone.
-    Case-insensitiv (Windows-Dateisystem), Backslash-tolerant.
+    Raises HumanOwnedZoneError for paths inside a declared zone.
+    Case-insensitive (Windows file systems), tolerant of backslashes.
     """
     norm = path.replace("\\", "/").lstrip("./").casefold()
     for zone in HUMAN_OWNED_ZONES:
         if norm.startswith(zone.casefold()):
             raise HumanOwnedZoneError(
-                f"'{path}' liegt in der human-owned Zone '{zone}' — "
-                f"KI-Writes sind dort verboten (SCHEMA §1 Axiom 2, ENT-062)."
+                f"'{path}' is inside the human-owned zone '{zone}' — "
+                f"AI writes are forbidden there (SCHEMA §1 axiom 2, ENT-062)."
             )
 
 
 def find_zone_owner_violations(wiki_root: Path = VAULT_ROOT) -> list[str]:
-    """Konsistenz-Detektor „Zone ⊄ owner-Flags" (ENT-062 Doppel-Kennzeichnung).
+    """Consistency detector "zone ⊄ owner flags" (ENT-062 double marking).
 
-    Liefert repo-relative Pfade aller Markdown-Seiten in deklarierten Zonen,
-    deren Frontmatter kein ``owner: human`` trägt (fehlend, abweichend oder
-    unparsbar). Pure Function — Lint-Integration folgt mit BL-07/BL-18.
+    Returns vault-relative paths of all Markdown pages inside declared zones
+    whose frontmatter does not carry ``owner: human`` (missing, different or
+    unparsable). Pure function; lint integration follows with BL-07/BL-18.
     """
     from agents import frontmatter
 
@@ -70,8 +70,8 @@ def execute_writes(writes: list[WikiWrite], wiki_root: Path = VAULT_ROOT) -> lis
 
     Returns list of written file paths.
 
-    Raises HumanOwnedZoneError bevor irgendein Write ausgeführt wird, wenn
-    auch nur ein Pfad in einer human-owned Zone liegt (kein Partial-Write).
+    Raises HumanOwnedZoneError before any write is executed if even one
+    path is inside a human-owned zone (no partial writes).
     """
     for write in writes:
         assert_writable(write["path"])

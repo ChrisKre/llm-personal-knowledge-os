@@ -1,47 +1,46 @@
-"""rebuild_index.py — deterministischer Re-Build von ``index.md``.
+"""rebuild_index.py — deterministic rebuild of ``index.md``.
 
-Quelle: Workshop S025 BL-04 (C1 Index-Reparatur), Architekt-Skizze
-[03 §B1](../workshop/03_architect.md), QM-Befund R3 / QK-12.
+Source: workshop S025 BL-04 (C1 index repair), architect sketch
+[03 §B1](../workshop/03_architect.md), QM finding R3 / QK-12.
 
-Was das Skript tut
+What the script does
+====================
+Walks ``wiki/**/*.md`` in the vault, parses frontmatter via
+``agents.frontmatter.parse``, groups pages by their ``type`` field (VocabEntry
+additionally by ``language`` into ``ES``/``EN`` buckets) and rewrites
+``index.md`` deterministically. Section order and entry format are a contract
+with [graph_reader._search_index_md](../agents/graph_reader.py) (phase 1 slug match).
+
+What the script does NOT do
+===========================
+- **Write wiki content.** It only reads; there is no ``patch_frontmatter``
+  write-back (brief S027, scope protection). If a migration wants to add a
+  ``summary`` slot, that is a migration of its own.
+- **LLM calls.** Summaries are derived deterministically from frontmatter
+  fields (``word``/``name``/``story_score``/slug tokens). The one-off
+  Sonnet/Haiku pass from the architect sketch §B1 is explicitly out of scope
+  (brief S027, "no destructive requirement").
+- **Run log.** Unlike migrations, no ``applied.json`` entry is written
+  (brief F1: rebuild scripts are run on demand, not versioned).
+
+Idempotency
+===========
+Identical wiki input -> byte-identical ``index.md``. If ``index.md`` is not
+modified externally between two runs, the second run writes nothing
+(``changed == False``).
+
+Defensive behavior
 ==================
-Walkt ``wiki/**/*.md``, parst Frontmatter ueber ``agents.frontmatter.parse``,
-gruppiert pro ``type``-Feld (VocabEntry zusaetzlich nach ``language``-Feld in
-``ES``/``EN``-Buckets), schreibt ``index.md`` deterministisch neu. Sektions-
-Reihenfolge und Eintrags-Format sind Vertrag mit
-[graph_reader._search_index_md](../agents/graph_reader.py) (Phase-1-Slug-Match).
+A ``YAMLError`` in a wiki file is not propagated: the path ends up in
+``result["skipped"]`` with a reason and the run continues, the same way
+``export_anki.py`` skips and reports.
 
-Was das Skript NICHT tut
-========================
-- **Wiki-Inhalt schreiben.** Es liest nur — kein ``patch_frontmatter``-
-  Backwrite (Brief S027 §Scope-Schutz). Falls eine Migration einen
-  ``summary``-Slot ergaenzen will, ist das eine eigene Migration.
-- **LLM-Calls.** Summaries werden deterministisch aus Frontmatter-Feldern
-  abgeleitet (``word``/``name``/``story_score``/Slug-Tokens). Der Architekt-
-  Skizze §B1 enthaltene einmalige Sonnet/Haiku-Pass ist explizit out-of-
-  scope (Brief S027 §"keine destruktive Auflage").
-- **Lauf-Log.** Anders als Migrationen wird kein ``applied.json``-Eintrag
-  geschrieben (Brief F1: Re-Build-Skripte sind laeufergetrieben, nicht
-  versioniert).
-
-Idempotenz
-==========
-Identische Wiki-Eingaben -> byte-identisches ``index.md``. Wird
-``index.md`` zwischen zwei Laeufen nicht extern modifiziert, schreibt der
-zweite Lauf nichts (``changed == False``).
-
-Defensive
-=========
-``YAMLError`` auf einer Wiki-Datei wird nicht propagiert — der Pfad landet
-in ``result["skipped"]`` mit Reason und der Lauf macht weiter. Das ist
-analog zum Verhalten von ``export_anki.py`` (skip + Reason-Reporting).
-
-Aufruf
-======
+Usage
+=====
 ::
 
-    python scripts/rebuild_index.py            # live re-build
-    python scripts/rebuild_index.py --dry-run  # Plan-Output ohne Schreibe
+    python scripts/rebuild_index.py            # live rebuild
+    python scripts/rebuild_index.py --dry-run  # show the plan without writing
 """
 
 from __future__ import annotations
@@ -72,9 +71,9 @@ INDEX_HEADER = (
     "---\n\n"
 )
 
-# (Sektions-Titel, Bucket-Key, type-Filter, language-Filter)
-# Reihenfolge ist Vertrag mit graph_reader._normalize_type — Aenderungen
-# verlangen einen synchronisierten Code-Edit dort.
+# (section title, bucket key, type filter, language filter)
+# The order is a contract with graph_reader._normalize_type; changes need a
+# matching edit there.
 SECTION_SPECS: list[tuple[str, str, str, str | None]] = [
     ("PersonalFacts",       "PersonalFact",       "PersonalFact",   None),
     ("VocabEntries — ES",   "VocabEntry-es",      "VocabEntry",     "es"),
@@ -87,7 +86,7 @@ SECTION_SPECS: list[tuple[str, str, str, str | None]] = [
     ("Human-Owned (health)", "HumanOwned",        "HumanOwned",     None),
 ]
 
-# Human-owned Typen-Familie (SCHEMA §3.10, ENT-062) — drei Typen, ein Bucket.
+# Human-owned type family (SCHEMA §3.10, ENT-062): three types, one bucket.
 HUMAN_OWNED_TYPES = ("HealthProtocol", "HealthReview", "DeepResearchPrompt")
 
 
@@ -110,20 +109,21 @@ def _bucket_key(fm: dict[str, Any]) -> str | None:
 
 
 def _summary(slug: str, fm: dict[str, Any]) -> str:
-    """Deterministische one-line Summary aus Frontmatter-Feldern.
+    """Deterministic one-line summary from frontmatter fields.
 
-    Vorrang: ``summary``-Feld (falls von einer kuenftigen Migration ergaenzt).
-    Sonst typ-spezifisch:
-      - VocabEntry: ``word``-Feld, sonst slug.
-      - LanguageBridge: ``Bridge: <wort> (<from> ↔ <to>)`` aus Slug-Pattern
-        ``lb_<from>-<to>_<wort>``, sonst slug.
-      - CulturalEntry: ``name``-Feld, sonst slug.
-      - PersonalFact: ``slug (story_score: N)`` falls ``story_score``
-        gesetzt ist, sonst slug.
-      - TopicPage: ``<topic> (<domain>, N Quellen)`` aus ``topic``/``domain``/
-        ``sources``-Feldern, sonst slug.
-      - Human-owned Typen (HUMAN_OWNED_TYPES): ``title``-Feld, sonst slug.
-      - Sonst: slug.
+    Precedence: the ``summary`` field (if a future migration adds it).
+    Otherwise per type:
+      - VocabEntry: the ``word`` field, else the slug.
+      - LanguageBridge: ``Bridge: <word> (<from> ↔ <to>)`` from the slug pattern
+        ``lb_<from>-<to>_<word>``, else the slug.
+      - CulturalEntry: the ``name`` field, else the slug.
+      - PersonalFact: ``slug (story_score: N)`` if ``story_score`` is set,
+        else the slug.
+      - TopicPage: ``<topic> (<domain>, N Quellen)`` from the ``topic``/``domain``/
+        ``sources`` fields, else the slug ("Quellen" = sources; index content
+        stays German).
+      - Human-owned types (HUMAN_OWNED_TYPES): the ``title`` field, else the slug.
+      - Otherwise: the slug.
     """
     if fm.get("summary"):
         return str(fm["summary"]).strip()

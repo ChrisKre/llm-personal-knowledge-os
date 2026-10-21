@@ -1,13 +1,15 @@
-"""export_anki.py — VocabEntry → .apkg Exporter (MVP-2-Zweitwelle, Session 023).
+"""export_anki.py — VocabEntry → .apkg exporter (MVP-2 second wave, session 023).
 
-Implementiert ENT-050/051/052:
-  - Quelle: wiki/language/vocab/*.md mit status: elaborated|practiced
-  - Identität: anki_id = sha1("pks-vocab-" + slug)[:16], in Frontmatter persistiert
-  - Karte: Front=ES-Wort (mit Genus-Präfix wenn parsbar), Back=DE + Beispiel + Eselsbrücke
-  - Tags: Frontmatter-Tags + language::es + difficulty::<CEFR>
-  - Bridges werden NICHT exportiert (ENT-051)
+Implements ENT-050/051/052:
+  - Source: wiki/language/vocab/*.md with status: elaborated|practiced
+  - Identity: anki_id = sha1("pks-vocab-" + slug)[:16], persisted in frontmatter
+  - Card: front = ES word (with gender article if parsable), back = DE + example + mnemonic
+  - Tags: frontmatter tags + language::es + difficulty::<CEFR>
+  - Bridges are NOT exported (ENT-051)
+  - Body sections are matched by their German headings (Übersetzungen, Beispielsätze,
+    Eselsbrücke) as written by the language agent.
 
-Aufruf:
+Usage:
     python scripts/export_anki.py [--out PATH] [--since YYYY-MM-DD]
 """
 
@@ -268,14 +270,14 @@ def run_export(out_path: Path, since: str | None = None) -> ExportSummary:
     t0 = time.perf_counter()
 
     if not VOCAB_DIR.exists():
-        print(f"[ERR] Vocab-Verzeichnis nicht gefunden: {VOCAB_DIR}", file=sys.stderr)
+        print(f"[ERR] vocab directory not found: {VOCAB_DIR}", file=sys.stderr)
         return summary
 
     records: list[VocabRecord] = []
     for md in sorted(VOCAB_DIR.glob("*.md")):
         rec = parse_vocab_file(md)
         if rec is None:
-            summary.skipped.append((md.stem, "kein VocabEntry-Frontmatter"))
+            summary.skipped.append((md.stem, "no VocabEntry frontmatter"))
             continue
         if rec.status not in EXPORTABLE_STATUS:
             summary.skipped.append((rec.slug, f"status={rec.status!r}"))
@@ -284,7 +286,7 @@ def run_export(out_path: Path, since: str | None = None) -> ExportSummary:
             summary.skipped.append((rec.slug, f"updated<{since}"))
             continue
         if not rec.translation_de:
-            summary.skipped.append((rec.slug, "keine DE-Übersetzung im Body"))
+            summary.skipped.append((rec.slug, "no DE translation in body"))
             continue
         records.append(rec)
 
@@ -331,19 +333,19 @@ def _cli() -> int:
 
     summary = run_export(args.out, since=args.since)
 
-    print(f"Anki-Export -- {date.today().isoformat()}")
-    print(f"  Exportiert: {len(summary.exported)} Karten")
+    print(f"Anki export -- {date.today().isoformat()}")
+    print(f"  Exported: {len(summary.exported)} cards")
     if summary.exported:
         print(f"    -> {', '.join(summary.exported)}")
-    print(f"  Uebersprungen: {len(summary.skipped)}")
+    print(f"  Skipped: {len(summary.skipped)}")
     for slug, reason in summary.skipped:
         print(f"    - {slug}: {reason}")
-    print(f"  Frontmatter-Patches (anki_id geschrieben): {len(summary.patched_files)}")
+    print(f"  Frontmatter patches (anki_id written): {len(summary.patched_files)}")
     if summary.patched_files:
         print(f"    -> {', '.join(summary.patched_files)}")
-    print(f"  Lauf-Zeit: {summary.duration_s:.3f}s")
+    print(f"  Run time: {summary.duration_s:.3f}s")
     if summary.out_path:
-        print(f"  Datei: {summary.out_path}")
+        print(f"  File: {summary.out_path}")
     return 0 if summary.exported else 1
 
 

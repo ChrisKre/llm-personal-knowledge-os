@@ -29,7 +29,7 @@ class ExtractedContent:
     title: str                 # human-readable title or description of the source
     source_type: str           # "text" | "url" | "pdf" | "image" | "audio" | "youtube" | "video"
     source_path: str           # path in raw/sources/ or raw/assets/ (permanent copy)
-    user_hint: str = ""        # optional hint from user ("interessant für Vokabel", "#story", ...)
+    user_hint: str = ""        # optional hint from user ("good for vocab", "#story", ...)
     language_detected: str = "de"
     mode: str = "process-now"  # "process-now" | "quick-save"
 

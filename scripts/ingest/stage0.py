@@ -1,71 +1,71 @@
-"""Stufe 0 — deterministischer Inventory-/Dedup-Pass ueber die Source-Mounts.
+"""Stage 0 — deterministic inventory/dedup pass over the source mounts.
 
-Quelle: ENT-058 Extractor-Vertrag (a)–(f) woertlich, 02 §B2 (Stufen-Skizze),
-QM R12 (Ist-Clip-Check), Brief 032 Schritt 2. $0 — kein LLM-Call an keiner
-Stelle dieses Moduls (Scope-Schutz: enthaelt das Skript auch nur einen
-LLM-Call, ist der Scope verfehlt).
+Source: ENT-058 extractor contract (a)–(f) verbatim, 02 §B2 (stage sketch),
+QM R12 (is-a-clip check), brief 032 step 2. $0 — no LLM call anywhere in this
+module (scope protection: if the script contains even one LLM call, the scope
+is missed).
 
-Extractor-Vertrag (ENT-058)
-===========================
-(a) ``source``-URL → kanonische ID: YouTube → ``yt:<video_id>`` (Query-
-    Fragmente wie ``&t=…``/``&list=…`` strippen), sonst ``url:<normalisiert>``.
-(b) No-Frontmatter-Fallback: Titel aus Dateiname, ``id: sha1:<content-hash>``
-    (Langbericht ist der bekannte Fall, 01 §A2). Gilt auch fuer ``.html``.
-(c) Format-Weiche ``.md``/``.html`` (html → BeautifulSoup-Textextraktion;
-    ``bs4`` liegt bereits in der venv, Brief-032 F4).
-(d) Leer-Clip-Filter: Body < ``EMPTY_CLIP_MIN_WORDS`` Woerter →
+Extractor contract (ENT-058)
+============================
+(a) ``source`` URL → canonical ID: YouTube → ``yt:<video_id>`` (strip query
+    fragments such as ``&t=…``/``&list=…``), otherwise ``url:<normalized>``.
+(b) No-frontmatter fallback: title from the file name, ``id: sha1:<content-hash>``
+    (a long report without frontmatter is the known case, 01 §A2). Also applies
+    to ``.html``.
+(c) Format switch ``.md``/``.html`` (html → BeautifulSoup text extraction;
+    ``bs4`` is already a dependency, brief 032 F4).
+(d) Empty-clip filter: body < ``EMPTY_CLIP_MIN_WORDS`` words →
     ``skipped: empty_clip``.
-(e) ``tags: [clippings]`` wird ignoriert (konstant, kein Informationswert).
-(f) Ist-Clip-Check (QM R12): siehe unten.
+(e) ``tags: [clippings]`` is ignored (constant, carries no information).
+(f) Is-a-clip check (QM R12): see below.
 
-Lesart des Ist-Clip-Checks (f) — dokumentierte Architektur-Entscheidung
-=======================================================================
-R12 woertlich: „Frontmatter hat ``source:``-URL **oder** kanonische ID
-ableitbar; sonst → ``skipped: not_a_clipping``." Damit (b) und (f) beide
-einen nicht-leeren Anwendungsbereich haben, gilt:
+Reading of the is-a-clip check (f) — documented architecture decision
+=====================================================================
+R12 verbatim: "frontmatter has a ``source:`` URL **or** a derivable canonical
+ID; otherwise → ``skipped: not_a_clipping``." So that (b) and (f) both have a
+non-empty scope:
 
-- Frontmatter vorhanden **mit** ``source``-URL → Clipping (ID aus (a)).
-- **Kein** Frontmatter (oder Parse-Fehler, s.u.) → Clipping via (b)-Fallback
-  (``sha1:``-ID ist die ableitbare ID — der Langbericht muss verarbeitbar
-  bleiben, er ist die wertvollste Health-Quelle).
-- Frontmatter vorhanden, aber **ohne** verwertbare ``source``-URL →
-  ``not_a_clipping`` (der Web Clipper schreibt immer ``source``; FM ohne
-  Quelle = manuelle Notiz/kaputter Export — genau die R12-Kante).
+- Frontmatter present **with** a ``source`` URL → clipping (ID from (a)).
+- **No** frontmatter (or a parse error, see below) → clipping via the (b)
+  fallback (the ``sha1:`` ID is the derivable ID; long reports without
+  frontmatter must stay processable).
+- Frontmatter present but **without** a usable ``source`` URL →
+  ``not_a_clipping`` (the web clipper always writes ``source``; frontmatter
+  without a source = a manual note or a broken export, exactly the R12 edge).
 
-Abweichung zum Brief 032 (im Sessionbericht eskaliert): Die dort genannten
-Kandidaten (``Candy.md``, ``Preply*.md``, ``massive-…``) tragen alle echte
-``source``-URLs und sind nach ENT-058 woertlich **Clippings** — sie
-deterministisch zu skippen verlangte inhaltliche Bewertung (verboten,
-Stufe 1/S033) oder eine Domain-Blocklist (traefe auch die Karpathy-
-GitHub-Clips). Vertrag schlaegt Brief-Erwartung.
+Deviation from brief 032 (escalated in the session report): the candidates
+named there all carry real ``source`` URLs and are, by the letter of ENT-058,
+**clippings**. Skipping them deterministically would require a content
+judgment (forbidden here; that is stage 1 / S033) or a domain blocklist (which
+would also hit legitimate clips). The contract beats the brief's expectation.
 
-Frontmatter: NUR clean parse (Brief-032 F3)
-===========================================
-``yaml.safe_load`` auf den unveraenderten FM-Block. Der Legacy-Repair in
-``agents.frontmatter.parse`` ist fuer Wiki-Seiten kalibriert, nicht fuer
-Obsidian-Clipper-Output — er wird hier bewusst NICHT benutzt (S029-Lehre).
-Scheitert der Parse, greift der (b)-Fallback; das File bleibt verarbeitbar.
+Frontmatter: clean parse ONLY (brief 032 F3)
+============================================
+``yaml.safe_load`` on the unmodified FM block. The legacy repair in
+``agents.frontmatter.parse`` is calibrated for wiki pages, not for Obsidian
+clipper output, so it is deliberately NOT used here (lesson from S029). If the
+parse fails, the (b) fallback applies; the file stays processable.
 
-Dedup dreistufig (deterministisch, kein Embedding — ENT-002)
-============================================================
-1. ``byte``  — byte-identischer Datei-Inhalt.
-2. ``id``    — gleiche kanonische ID (faengt das Dupe-Clip-Paar
-   ``&t=50s``/``&t=55s`` und das NEARDUPE-Paar, selbes Video).
-3. ``near``  — ``SequenceMatcher.ratio() >= NEAR_DUPE_RATIO`` auf dem Body,
-   verglichen auf **Wort-Token-Ebene** (``body.split()``).
-   ``real_quick_ratio``/``quick_ratio`` als obere Schranken vorab — reine
-   Laufzeit-Optimierung, identisches Ergebnis (Brief-032 F5).
-   Warum Tokens statt Roh-Zeichen (F5-Fall, Laufzeit stoerte real): auf
-   Zeichen-Ebene ist ``quick_ratio`` (Zeichen-Haeufigkeiten) fuer
-   gleichsprachige Transkripte fast immer > 0,9 — das teure ``ratio()``
-   lief damit auf dutzenden 20–50-KB-Paaren (>7 min CPU auf dem
-   49-File-Korpus). Token-Ebene: Schwelle unveraendert 0,9 (Vertragswert),
-   deterministisch, robuster gegen Whitespace-/Punktuations-Rauschen;
-   Korpus-Lauf < 10 s.
+Three-stage dedup (deterministic, no embeddings — ENT-002)
+==========================================================
+1. ``byte``  — byte-identical file content.
+2. ``id``    — same canonical ID (catches the same video clipped twice with
+   ``&t=50s``/``&t=55s``).
+3. ``near``  — ``SequenceMatcher.ratio() >= NEAR_DUPE_RATIO`` on the body,
+   compared at **word-token level** (``body.split()``).
+   ``real_quick_ratio``/``quick_ratio`` run first as upper bounds: a pure
+   runtime optimization with identical results (brief 032 F5).
+   Why tokens instead of raw characters (F5 case; the runtime was a real
+   problem): at character level ``quick_ratio`` (character frequencies) is
+   almost always > 0.9 for transcripts in the same language, so the expensive
+   ``ratio()`` ran on dozens of 20–50 KB pairs (> 7 min CPU on a 49-file
+   corpus). At token level the threshold stays 0.9 (contract value), the
+   result is deterministic and more robust against whitespace/punctuation
+   noise; a corpus run takes < 10 s.
 
-Keeper-Regel pro Dupe-Gruppe (deterministisch): fruehestes ``created``,
-dann kuerzester Dateiname, dann lexikographisch — die Erst-Clip-Fassung
-ohne `` 1``-Suffix gewinnt.
+Keeper rule per dupe group (deterministic): earliest ``created``, then the
+shortest file name, then lexicographic order — the first clip without the
+`` 1`` suffix wins.
 """
 
 from __future__ import annotations
@@ -84,41 +84,41 @@ from scripts.ingest import EMPTY_CLIP_MIN_WORDS, NEAR_DUPE_RATIO, SOURCE_DIRS
 
 _FM_DELIM_RE = re.compile(r"^\s*---\s*$")
 
-# YouTube-Hosts fuer die kanonische ``yt:``-ID (ENT-058 (a)).
+# YouTube hosts for the canonical ``yt:`` ID (ENT-058 (a)).
 _YT_HOSTS = ("youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be")
 _YT_ID_RE = re.compile(r"^[A-Za-z0-9_-]{6,}$")
 
-# Tracking-Parameter, die bei ``url:``-Normalisierung gestrippt werden.
+# Tracking parameters stripped during ``url:`` normalization.
 _TRACKING_PARAMS = ("utm_", "fbclid", "gclid", "ref")
 
 
 @dataclass
 class ClipRecord:
-    """Inventory-Eintrag eines Files aus den Source-Mounts (Stufe 0)."""
+    """Inventory entry for one file from the source mounts (stage 0)."""
 
-    path: str                    # repo-relativ, POSIX
+    path: str                    # vault-relative, POSIX
     title: str
     fmt: str                     # "md" | "html"
-    canonical_id: str | None     # yt:/url:/sha1: — None nur bei not_a_clipping
+    canonical_id: str | None     # yt:/url:/sha1: — None only for not_a_clipping
     words: int
-    created: str                 # ISO-Datum aus FM, "" wenn unbekannt
+    created: str                 # ISO date from FM, "" if unknown
     status: str = "usable"       # usable|dupe|empty_clip|not_a_clipping|ledgered
     reason: str = ""
-    dupe_of: str | None = None   # Keeper-Pfad bei status=dupe
+    dupe_of: str | None = None   # keeper path when status=dupe
     dedup_tier: str | None = None  # byte|id|near
     body: str = field(default="", repr=False)
     raw_sha1: str = field(default="", repr=False)
 
 
 # ---------------------------------------------------------------------------
-# Extraktion
+# Extraction
 # ---------------------------------------------------------------------------
 
 def _fm_bounds(lines: list[str]) -> tuple[int, int]:
-    """Indices der beiden ``---``-Delimiter, (-1, -1) wenn kein FM-Block.
+    """Indices of the two ``---`` delimiters, (-1, -1) if there is no FM block.
 
-    Lokale Kopie der Delimiter-Logik (Muster ``2026-07-04_owner_flag``) —
-    bewusst keine ``agents.frontmatter``-Nutzung, s. Modul-Docstring (F3).
+    Local copy of the delimiter logic (pattern ``2026-07-04_owner_flag``);
+    deliberately does not use ``agents.frontmatter``, see the module docstring (F3).
     """
     start = end = -1
     for i, line in enumerate(lines):
@@ -132,11 +132,11 @@ def _fm_bounds(lines: list[str]) -> tuple[int, int]:
 
 
 def _parse_clean(text: str) -> tuple[dict[str, Any] | None, str]:
-    """Clean parse: ``(frontmatter | None, body)``. None = (b)-Fallback.
+    """Clean parse: ``(frontmatter | None, body)``. None = (b) fallback.
 
-    Kein Legacy-Repair (F3): unparsbares/fehlendes FM → ``None`` und der
-    komplette Text als Body (bzw. Rest nach dem kaputten Block — wir nehmen
-    konservativ den ganzen Text, damit der ``sha1:``-Hash stabil ist).
+    No legacy repair (F3): unparsable or missing FM → ``None`` and the whole
+    text as the body (rather than the rest after a broken block; we
+    conservatively take the whole text so the ``sha1:`` hash is stable).
     """
     lines = text.splitlines()
     start, end = _fm_bounds(lines)
@@ -153,8 +153,8 @@ def _parse_clean(text: str) -> tuple[dict[str, Any] | None, str]:
 
 
 def _html_to_text(html: str) -> tuple[str, str]:
-    """(title, text) aus einem HTML-File (Format-Weiche (c))."""
-    from bs4 import BeautifulSoup  # in der venv vorhanden (Brief-032 F4)
+    """(title, text) from an HTML file (format switch (c))."""
+    from bs4 import BeautifulSoup  # already a dependency (brief 032 F4)
 
     soup = BeautifulSoup(html, "html.parser")
     for tag in soup(["script", "style", "noscript"]):
@@ -164,9 +164,9 @@ def _html_to_text(html: str) -> tuple[str, str]:
 
 
 def canonical_id_from_source(source: str) -> str | None:
-    """ENT-058 (a): ``source``-URL → ``yt:<video_id>`` | ``url:<normalisiert>``.
+    """ENT-058 (a): ``source`` URL → ``yt:<video_id>`` | ``url:<normalized>``.
 
-    None wenn ``source`` keine http(s)-URL ist.
+    None if ``source`` is not an http(s) URL.
     """
     if not isinstance(source, str) or not source.strip():
         return None
@@ -186,10 +186,10 @@ def canonical_id_from_source(source: str) -> str | None:
                 video_id = parts.path.split("/")[2] if len(parts.path.split("/")) > 2 else ""
         if _YT_ID_RE.match(video_id):
             return f"yt:{video_id}"
-        # YouTube-URL ohne extrahierbare Video-ID → generische url:-Form.
+        # YouTube URL without an extractable video ID → generic url: form.
 
-    # url:<normalisiert>: https-Schema-agnostisch, Host lowercase ohne www.,
-    # Fragment weg, Tracking-Parameter weg, Trailing-Slash weg.
+    # url:<normalized>: scheme-agnostic, host lowercased without www.,
+    # no fragment, no tracking parameters, no trailing slash.
     query = urlencode([
         (k, v) for k, v in parse_qsl(parts.query)
         if not k.lower().startswith(_TRACKING_PARAMS[0])
@@ -203,21 +203,21 @@ def canonical_id_from_source(source: str) -> str | None:
 
 
 def _sha1_id(body: str) -> str:
-    """(b)-Fallback-ID: Content-Hash. ``\\r\\n`` normalisiert, damit die ID
-    unabhaengig von autocrlf-Checkout-Varianten stabil ist."""
+    """(b) fallback ID: content hash. ``\\r\\n`` is normalized so the ID is
+    stable regardless of autocrlf checkout variants."""
     normalized = body.replace("\r\n", "\n").encode("utf-8")
     return f"sha1:{hashlib.sha1(normalized).hexdigest()}"
 
 
 def extract_clip(path: Path, repo_root: Path) -> ClipRecord:
-    """Ein File aus einem Source-Mount → ``ClipRecord`` (Status noch ohne
-    Ledger-/Dedup-Wissen: ``usable``, ``empty_clip`` oder ``not_a_clipping``).
+    """One file from a source mount → ``ClipRecord`` (status without ledger or
+    dedup knowledge yet: ``usable``, ``empty_clip`` or ``not_a_clipping``).
     """
     rel = path.relative_to(repo_root).as_posix()
     raw_bytes = path.read_bytes()
-    # errors="replace": Rohdaten duerfen den Lauf nie crashen (Mojibake-
-    # Bestand ist bekannt); die Bytes selbst werden nie angefasst.
-    # BOM strippen, sonst verfehlt der FM-Delimiter-Match Zeile 0.
+    # errors="replace": raw data must never crash the run (mojibake file
+    # names are known to exist); the bytes themselves are never touched.
+    # Strip the BOM, otherwise the FM delimiter match misses line 0.
     text = raw_bytes.decode("utf-8", errors="replace").lstrip("﻿")
     raw_sha1 = hashlib.sha1(
         text.replace("\r\n", "\n").encode("utf-8")).hexdigest()
@@ -235,16 +235,16 @@ def extract_clip(path: Path, repo_root: Path) -> ClipRecord:
     created = str((fm or {}).get("created") or "")
     words = len(body.split())
 
-    # Ist-Clip-Check (f) — Lesart siehe Modul-Docstring.
+    # Is-a-clip check (f) — see the module docstring for how it is read.
     if fm is None:
-        canonical_id = _sha1_id(body)          # (b)-Fallback, LONGDOC-/HTML-Fall
+        canonical_id = _sha1_id(body)          # (b) fallback: long report / HTML case
     else:
         canonical_id = canonical_id_from_source(fm.get("source"))
         if canonical_id is None:
             return ClipRecord(
                 path=rel, title=title, fmt=fmt, canonical_id=None,
                 words=words, created=created, status="not_a_clipping",
-                reason="Frontmatter ohne source:-URL (QM R12)",
+                reason="frontmatter without source: URL (QM R12)",
                 body=body, raw_sha1=raw_sha1,
             )
 
@@ -254,13 +254,13 @@ def extract_clip(path: Path, repo_root: Path) -> ClipRecord:
     )
     if words < EMPTY_CLIP_MIN_WORDS:
         record.status = "empty_clip"
-        record.reason = f"{words} Woerter < {EMPTY_CLIP_MIN_WORDS}"
+        record.reason = f"{words} words < {EMPTY_CLIP_MIN_WORDS}"
     return record
 
 
 def walk_sources(repo_root: Path,
                  source_dirs: tuple[str, ...] = SOURCE_DIRS) -> list[Path]:
-    """Alle ``.md``/``.html``-Files der Mounts, deterministisch sortiert."""
+    """All ``.md``/``.html`` files in the mounts, sorted deterministically."""
     files: list[Path] = []
     for mount in source_dirs:
         base = repo_root / Path(mount)
@@ -272,7 +272,7 @@ def walk_sources(repo_root: Path,
 
 
 # ---------------------------------------------------------------------------
-# Dedup (dreistufig)
+# Dedup (three stages)
 # ---------------------------------------------------------------------------
 
 def _keeper_sort_key(rec: ClipRecord) -> tuple[str, int, str]:
@@ -286,16 +286,16 @@ def _mark_dupes(group: list[ClipRecord], tier: str) -> None:
         rec.status = "dupe"
         rec.dedup_tier = tier
         rec.dupe_of = keeper.path
-        rec.reason = f"{tier}-Dupe von {keeper.path}"
+        rec.reason = f"{tier} dupe of {keeper.path}"
 
 
 def dedup(records: list[ClipRecord]) -> None:
-    """Dreistufiger Dedup in-place ueber alle ``status == "usable"``-Records.
+    """Three-stage dedup, in place, over all ``status == "usable"`` records.
 
-    Reihenfolge byte → id → near; ein bereits markierter Dupe nimmt an
-    spaeteren Stufen nicht mehr teil.
+    Order byte → id → near; a record already marked as a dupe takes no part
+    in later stages.
     """
-    # Stufe 1: byte-identisch.
+    # Stage 1: byte-identical.
     by_hash: dict[str, list[ClipRecord]] = {}
     for rec in records:
         if rec.status == "usable":
@@ -304,7 +304,7 @@ def dedup(records: list[ClipRecord]) -> None:
         if len(group) > 1:
             _mark_dupes(group, "byte")
 
-    # Stufe 2: gleiche kanonische ID.
+    # Stage 2: same canonical ID.
     by_id: dict[str, list[ClipRecord]] = {}
     for rec in records:
         if rec.status == "usable" and rec.canonical_id:
@@ -313,8 +313,8 @@ def dedup(records: list[ClipRecord]) -> None:
         if len(group) > 1:
             _mark_dupes(group, "id")
 
-    # Stufe 3: Near-Dupes (SequenceMatcher >= NEAR_DUPE_RATIO auf Body,
-    # Wort-Token-Ebene — Begruendung im Modul-Docstring).
+    # Stage 3: near dupes (SequenceMatcher >= NEAR_DUPE_RATIO on the body,
+    # word-token level — rationale in the module docstring).
     survivors = [r for r in records if r.status == "usable"]
     tokens = {id(r): r.body.split() for r in survivors}
     for i, a in enumerate(survivors):
@@ -325,8 +325,8 @@ def dedup(records: list[ClipRecord]) -> None:
                 continue
             sm = SequenceMatcher(None, tokens[id(a)], tokens[id(b)],
                                  autojunk=False)
-            # Obere Schranken zuerst — identisches Ergebnis, nur schneller
-            # (ratio() auf 50k-Zeichen-Paaren ist der reale Kostentreiber).
+            # Upper bounds first — identical result, just faster
+            # (ratio() on 50k-character pairs is the real cost driver).
             if sm.real_quick_ratio() < NEAR_DUPE_RATIO:
                 continue
             if sm.quick_ratio() < NEAR_DUPE_RATIO:

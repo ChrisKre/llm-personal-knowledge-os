@@ -81,10 +81,10 @@ def main() -> None:
         print("  Provider: Claude API")
     elif provider == "ollama":
         model = os.environ.get("OLLAMA_MODEL", "llama3.2")
-        print(f"  Provider: Ollama ({model}) — kein API-Key nötig")
+        print(f"  Provider: Ollama ({model}) — no API key needed")
     else:
-        print("[WARN] Weder ANTHROPIC_API_KEY noch Ollama erreichbar.")
-        print("       Zeige nur raw_event (kein Pipeline-Lauf möglich):\n")
+        print("[WARN] Neither ANTHROPIC_API_KEY set nor Ollama reachable.")
+        print("       Showing raw_event only (pipeline cannot run):\n")
         print(json.dumps({
             "content": args.text, "user_hint": args.hint,
             "source": "cli", "media_type": "text",
@@ -113,7 +113,7 @@ def main() -> None:
         import main_workflow as _mw
 
         def _dry_execute(writes, wiki_root=None):
-            print(f"\n  [DRY-RUN] execute_writes() würde {len(writes)} Datei(en) schreiben — übersprungen.")
+            print(f"\n  [DRY-RUN] execute_writes() would write {len(writes)} file(s) — skipped.")
 
         _gw.execute_writes = _dry_execute
         _mw.execute_writes = _dry_execute
@@ -134,15 +134,15 @@ def main() -> None:
         telegram_messages=[],
     )
 
-    print("\n  Pipeline läuft...")
+    print("\n  Running pipeline...")
     final_state = graph.invoke(initial_state)
 
-    _print_section("ERGEBNIS")
+    _print_section("RESULT")
     print(f"  Intent:           {final_state.get('classified_intent', '?')}")
     print(f"  Supervisor:       {final_state.get('supervisor_verdict', '?')}")
     review = final_state.get("review_notes", "")
     if review:
-        print(f"  Review-Notizen:   {review[:200]}")
+        print(f"  Review notes:     {review[:200]}")
 
     wiki_writes = final_state.get("wiki_writes", [])
     _print_section(f"WIKI WRITES ({len(wiki_writes)})")
@@ -150,7 +150,7 @@ def main() -> None:
         for i, w in enumerate(wiki_writes, 1):
             _print_wiki_write(w, i)
     else:
-        print("  (keine WikiWrite-Objekte)")
+        print("  (no WikiWrite objects)")
 
     tg = final_state.get("telegram_messages", [])
     if tg:
@@ -160,7 +160,7 @@ def main() -> None:
 
     graph_ctx = final_state.get("graph_context", [])
     if graph_ctx:
-        _print_section(f"GRAPH CONTEXT ({len(graph_ctx)} Seiten geladen)")
+        _print_section(f"GRAPH CONTEXT ({len(graph_ctx)} pages loaded)")
         for p in graph_ctx:
             title = getattr(p, "title", "?")
             summary = getattr(p, "summary", "")[:80]
@@ -176,7 +176,7 @@ def main() -> None:
         print(json.dumps(final_state, default=_default, ensure_ascii=False, indent=2))
 
     if not args.write:
-        print("\n  Tipp: Füge --write hinzu um Dateien tatsächlich zu schreiben.")
+        print("\n  Tip: add --write to actually write the files.")
 
 
 if __name__ == "__main__":

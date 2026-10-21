@@ -1,4 +1,4 @@
-"""Smoke-Test: pyyaml verfügbar (Pre-Req für jede Frontmatter-Migration)."""
+"""Smoke test: pyyaml is available (prerequisite for every frontmatter migration)."""
 
 
 def test_yaml_available():

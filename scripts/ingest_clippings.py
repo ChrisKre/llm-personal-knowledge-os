@@ -1,53 +1,53 @@
-"""ingest_clippings.py — Batch-Ingestion der Clippings, Stufe 0 (BL-16).
+"""ingest_clippings.py — batch ingestion of web clippings, stage 0 (BL-16).
 
-Quelle: ENT-058 (Kanal K2 + Extractor-Vertrag), 02 §B2 (Stufen-Skizze +
-Idempotenz-Definition), QM R12/QK-21, Brief 032. Konventionen aus
-``scripts/migrations/`` (Backup-Branch-Check, Idempotenz, Ledger, dry-run)
-und ``scripts/rebuild_index.py`` (``run()``-Signatur, Report-Stil).
+Source: ENT-058 (channel K2 + extractor contract), 02 §B2 (stage sketch +
+idempotency definition), QM R12/QK-21, brief 032. Conventions from
+``scripts/migrations/`` (backup branch check, idempotency, ledger, dry run)
+and ``scripts/rebuild_index.py`` (``run()`` signature, report style).
 
-Was das Skript tut (Stufe 0, deterministisch, $0)
+What the script does (stage 0, deterministic, $0)
 =================================================
-Walkt ``SOURCE_DIRS`` (``scripts/ingest``), extrahiert pro File Titel/
-kanonische ID/Wortzahl (Extractor-Vertrag (a)–(f), siehe
-``scripts/ingest/stage0.py``), filtert geledgerte IDs, dedupliziert
-dreistufig (byte / kanonische ID / SequenceMatcher ≥ 0,9) und schreibt:
+Walks ``SOURCE_DIRS`` (``scripts/ingest``) in the vault, extracts title /
+canonical ID / word count per file (extractor contract (a)–(f), see
+``scripts/ingest/stage0.py``), filters ledgered IDs, deduplicates in three
+stages (byte / canonical ID / SequenceMatcher ≥ 0.9) and writes:
 
-- ``out/ingest/inventory_plan.json``  — Inventory-Plan (Build-Artefakt,
-  gitignored, ENT-054-Pattern)
-- ``out/ingest/inventory_report.md``  — menschenlesbarer Report
-  (Zaehlung nutzbar / dupe / empty / not_a_clipping / ledgered)
+- ``out/ingest/inventory_plan.json``  — inventory plan (build artifact,
+  gitignored, ENT-054 pattern)
+- ``out/ingest/inventory_report.md``  — human-readable report
+  (counts: usable / dupe / empty / not_a_clipping / ledgered)
 
-Was das Skript NICHT tut
-========================
-- **Kein LLM-Call** (Stufe 1–5 sind S033/BL-17 — enthaelt Stufe 0 auch nur
-  einen LLM-Call, ist der Scope verfehlt; Brief 032 §Scope-Schutz).
-- **Kein Write in ``wiki/``**, kein Draft-Pfad (``graph_writer``/ENT-059
-  werden erst mit BL-17 produktiv).
-- **Kein Byte in ``raw/`` veraendert** — Mounts werden nur gelesen.
+What the script does NOT do
+===========================
+- **No LLM call** (stages 1–5 are S033/BL-17; if stage 0 contains even one
+  LLM call, the scope is missed; brief 032, scope protection).
+- **No write to ``wiki/``**, no draft path (``graph_writer``/ENT-059 only
+  become productive with BL-17).
+- **No byte in ``raw/`` is changed**; the mounts are only read.
 
-Betriebs-Modi
-=============
-- ``--dry-run`` ist **Default** und endet nach Stufe 0: Plan + Report,
-  keine Ledger-Schreibe.
-- ``--live`` verlangt den Backup-Branch ``backup/pre-clippings-batch``
-  (Check bricht sonst ab; den Branch selbst legt erst S033 vor dem echten
-  Batch an) und schreibt ``skipped``-Ledger-Eintraege fuer definitive
-  Skips (``empty_clip``/``dupe``). Nicht geledgert werden:
-  (a) ``usable``-Files — deren ``merged``-Eintrag schreibt erst Stufe 5
-  atomar (QK-17a); (b) ``not_a_clipping``-Files — ohne kanonische ID kein
-  Ledger-Key, sie bleiben bewusst in jedem Report sichtbar; (c) Dupes,
-  deren ID ein ``usable``-File teilt (DupeClip-Paar: gleiche ``yt:``-ID wie
-  der Keeper — ein Skip-Eintrag wuerde den Keeper mitfiltern).
-- ``--reconstruct-ledger``: Selbstheilung aus ``wiki/topics/`` (02 §B2);
-  schreibt nur zusammen mit ``--live``, sonst Plan-Ausgabe.
+Modes
+=====
+- ``--dry-run`` is the **default** and stops after stage 0: plan + report,
+  no ledger writes.
+- ``--live`` requires the backup branch ``backup/pre-clippings-batch`` in the
+  vault repo (the check aborts otherwise; the branch itself is only created
+  right before the real batch) and writes ``skipped`` ledger entries for
+  definitive skips (``empty_clip``/``dupe``). Not ledgered are:
+  (a) ``usable`` files — their ``merged`` entry is only written atomically by
+  stage 5 (QK-17a); (b) ``not_a_clipping`` files — without a canonical ID
+  there is no ledger key, so they deliberately stay visible in every report;
+  (c) dupes whose ID is shared with a ``usable`` file (same ``yt:`` ID as the
+  keeper — a skip entry would filter out the keeper too).
+- ``--reconstruct-ledger``: self-healing from ``wiki/topics/`` (02 §B2);
+  writes only together with ``--live``, otherwise prints the plan.
 
-Aufruf
-======
+Usage
+=====
 ::
 
-    python scripts/ingest_clippings.py                        # dry-run
-    python scripts/ingest_clippings.py --live                 # Ledger-Write
-    python scripts/ingest_clippings.py --reconstruct-ledger   # Selbstheilung
+    python scripts/ingest_clippings.py                        # dry run
+    python scripts/ingest_clippings.py --live                 # ledger write
+    python scripts/ingest_clippings.py --reconstruct-ledger   # self-healing
 """
 
 from __future__ import annotations
@@ -139,12 +139,12 @@ def _report(records: list[ClipRecord], counts: dict[str, int],
     md = sum(1 for r in records if r.fmt == "md")
     html = sum(1 for r in records if r.fmt == "html")
     lines = [
-        "# Inventory-Report — Clippings-Ingestion Stufe 0",
-        f"> Erzeugt: {ts} | Modus: {mode} | Quelle: {', '.join(SOURCE_DIRS)}",
+        "# Inventory report — clippings ingestion stage 0",
+        f"> Generated: {ts} | Mode: {mode} | Source: {', '.join(SOURCE_DIRS)}",
         "",
-        f"**Files gesamt: {counts['files']}** (md {md} / html {html})",
+        f"**Total files: {counts['files']}** (md {md} / html {html})",
         "",
-        "| Status | Anzahl |",
+        "| Status | Count |",
         "|---|---:|",
     ]
     for status in STATUS_ORDER:
@@ -158,18 +158,18 @@ def _report(records: list[ClipRecord], counts: dict[str, int],
             lines.append("")
 
     _section("Dupes", [
-        f"- `{r.path}` → Keeper `{r.dupe_of}` (Stufe: {r.dedup_tier})"
+        f"- `{r.path}` → keeper `{r.dupe_of}` (stage: {r.dedup_tier})"
         for r in records if r.status == "dupe"])
-    _section("Leer-Clips (empty_clip)", [
+    _section("Empty clips (empty_clip)", [
         f"- `{r.path}` — {r.reason}"
         for r in records if r.status == "empty_clip"])
-    _section("Kein Clipping (not_a_clipping, QM R12)", [
+    _section("Not a clipping (not_a_clipping, QM R12)", [
         f"- `{r.path}` — {r.reason}"
         for r in records if r.status == "not_a_clipping"])
-    _section("Bereits verarbeitet (ledgered)", [
+    _section("Already processed (ledgered)", [
         f"- `{r.path}` — {r.reason}"
         for r in records if r.status == "ledgered"])
-    _section("No-Frontmatter-Fallback (sha1:-ID)", [
+    _section("No-frontmatter fallback (sha1: ID)", [
         f"- `{r.path}` → `{r.canonical_id}` ({r.status})"
         for r in records
         if r.canonical_id and r.canonical_id.startswith("sha1:")])
@@ -185,9 +185,9 @@ def run(
     out_dir: Path | None = None,
     source_dirs: tuple[str, ...] = SOURCE_DIRS,
 ) -> dict[str, Any]:
-    """Stufe 0 ausfuehren. Return-Keys: ``records``, ``counts``, ``plan``,
+    """Run stage 0. Return keys: ``records``, ``counts``, ``plan``,
     ``report`` (str), ``plan_path``/``report_path``, ``ledger_written``
-    (Liste neuer Ledger-IDs), ``nothing_to_do``.
+    (list of new ledger IDs), ``nothing_to_do``.
     """
     ledger_path = ledger_path or LEDGER_PATH
     out_dir = out_dir or OUT_DIR
@@ -196,7 +196,7 @@ def run(
     if not dry_run and require_backup_branch and \
             not _branch_exists(repo_root, BACKUP_BRANCH):
         raise RuntimeError(
-            f"Backup-Branch '{BACKUP_BRANCH}' fehlt. Vor Live-Lauf erzeugen: "
+            f"Backup branch '{BACKUP_BRANCH}' is missing. Create it before a live run: "
             f"git branch {BACKUP_BRANCH}"
         )
 
@@ -204,13 +204,13 @@ def run(
     records = [extract_clip(p, repo_root)
                for p in walk_sources(repo_root, source_dirs)]
 
-    # Idempotenz (02 §B2): geledgerte IDs zuerst filtern — vor Dedup,
-    # damit ein bereits verarbeiteter Keeper nicht erneut antritt.
+    # Idempotency (02 §B2): filter ledgered IDs first, before dedup,
+    # so an already processed keeper does not compete again.
     for rec in records:
         if rec.canonical_id and rec.canonical_id in ledger:
             rec.status = "ledgered"
             rec.reason = (
-                f"im Ledger: {ledger[rec.canonical_id].get('status')} "
+                f"in ledger: {ledger[rec.canonical_id].get('status')} "
                 f"({ledger[rec.canonical_id].get('reason', '')})".strip()
             )
 
@@ -228,7 +228,7 @@ def run(
                          encoding="utf-8", newline="\n")
     report_path.write_text(report, encoding="utf-8", newline="\n")
 
-    # Live: skipped-Eintraege fuer definitive Skips (Modul-Docstring).
+    # Live: skipped entries for definitive skips (see the module docstring).
     ledger_written: list[str] = []
     if not dry_run:
         usable_ids = {r.canonical_id for r in records if r.status == "usable"}
@@ -259,34 +259,34 @@ def run(
 
 
 def _cli() -> int:
-    # Windows-Konsole ist cp1252 — Report enthaelt UTF-8 (→, Umlaute).
+    # The Windows console is cp1252; the report contains UTF-8 (→, umlauts).
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     p = argparse.ArgumentParser(
-        description="Clippings-Batch Stufe 0: Inventory/Dedup/Ledger ($0).")
+        description="Clippings batch stage 0: inventory/dedup/ledger ($0).")
     p.add_argument("--dry-run", action="store_true", default=True,
-                   help="Default: Plan + Report, keine Ledger-Schreibe.")
+                   help="Default: plan + report, no ledger writes.")
     p.add_argument("--live", action="store_true",
-                   help="Ledger-Write; verlangt Backup-Branch "
+                   help="Write the ledger; requires the backup branch "
                         f"'{BACKUP_BRANCH}'.")
     p.add_argument("--skip-backup-check", action="store_true",
-                   help="Backup-Branch-Check ueberspringen (nur Tests/Local).")
+                   help="Skip the backup branch check (tests/local only).")
     p.add_argument("--reconstruct-ledger", action="store_true",
-                   help="Selbstheilung: Ledger aus wiki/topics/ rekonstruieren "
-                        "(schreibt nur mit --live).")
+                   help="Self-healing: rebuild the ledger from wiki/topics/ "
+                        "(writes only with --live).")
     args = p.parse_args()
     dry_run = not args.live
 
     if args.reconstruct_ledger:
         entries = reconstruct_ledger(VAULT_ROOT)
-        print(f"[reconstruct-ledger] {len(entries)} IDs aus wiki/topics/")
+        print(f"[reconstruct-ledger] {len(entries)} IDs from wiki/topics/")
         for sid, entry in sorted(entries.items()):
             print(f"  {sid} → {entry['topic_pages']}")
         if dry_run:
-            print("  (dry-run — nichts geschrieben; --live zum Schreiben)")
+            print("  (dry run — nothing written; use --live to write)")
         else:
             save_ledger(entries)
-            print(f"  geschrieben: {LEDGER_PATH}")
+            print(f"  written: {LEDGER_PATH}")
         return 0
 
     try:
@@ -302,9 +302,9 @@ def _cli() -> int:
     print(f"Plan:   {result['plan_path'].relative_to(REPO_ROOT)}")
     print(f"Report: {result['report_path'].relative_to(REPO_ROOT)}")
     if not dry_run:
-        print(f"Ledger: {len(result['ledger_written'])} neue skipped-Eintraege")
+        print(f"Ledger: {len(result['ledger_written'])} new skipped entries")
     if result["nothing_to_do"]:
-        print("nothing to do — alle Clips geledgert oder kein Input.")
+        print("nothing to do — all clips ledgered or no input.")
     return 0
 
 

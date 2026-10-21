@@ -1,13 +1,15 @@
-"""bot.py — Telegram Bot: primärer Input-Kanal des LLM-Personal-Knowledge-OS.
+"""bot.py — Telegram bot: the primary input channel of the LLM-Personal-Knowledge-OS.
 
-Empfängt: Text / Voice / URL / Foto / Dokument / Video
-Leitet weiter an: Extractor → raw/events/ → main_workflow.run_ingest()
-Sendet: Bestätigung an Nutzer
+Receives:     text / voice / URL / photo / document / video
+Forwards to:  Extractor → raw/events/ → main_workflow.run_ingest()
+Sends:        a confirmation to the user
 
-Start: python bot.py
-Voraussetzung: TELEGRAM_BOT_TOKEN in .env
-Optional:      ANTHROPIC_API_KEY (ohne Key → Ollama-Fallback)
-               TELEGRAM_ALLOWED_USER_ID (leer → Filter deaktiviert, Discovery-Modus)
+Start:        python bot.py
+Requires:     TELEGRAM_BOT_TOKEN in .env
+Optional:     ANTHROPIC_API_KEY (without a key → Ollama fallback)
+              TELEGRAM_ALLOWED_USER_ID (empty → filter disabled, discovery mode)
+
+User-facing replies are German for now (see ROADMAP: i18n).
 """
 
 from __future__ import annotations
@@ -49,34 +51,34 @@ _api_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 _client = anthropic.Anthropic(api_key=_api_key) if _api_key else None
 _extractor = Extractor(wiki_root=VAULT_ROOT, anthropic_client=_client)
 if _client is None:
-    logger.info("Kein ANTHROPIC_API_KEY — Ollama-Fallback aktiv.")
+    logger.info("No ANTHROPIC_API_KEY — Ollama fallback active.")
 
 _allowed_user_raw = os.environ.get("TELEGRAM_ALLOWED_USER_ID", "").strip()
 _ALLOWED_USER_ID: int | None = int(_allowed_user_raw) if _allowed_user_raw else None
 if _ALLOWED_USER_ID is None:
     logger.warning(
-        "TELEGRAM_ALLOWED_USER_ID nicht gesetzt — Discovery-Modus (jeder darf schreiben). "
-        "User-ID aus Log ablesen, in .env eintragen, Bot neu starten."
+        "TELEGRAM_ALLOWED_USER_ID not set — discovery mode (anyone may write). "
+        "Read your user ID from the log, put it in .env, restart the bot."
     )
 else:
-    logger.info("Auth-Filter aktiv für User-ID %s.", _ALLOWED_USER_ID)
+    logger.info("Auth filter active for user ID %s.", _ALLOWED_USER_ID)
 
 
 def _require_allowed_user(func):
-    """Decorator — blockt Handler für fremde User-IDs, loggt Rejection.
+    """Decorator — blocks handlers for other user IDs and logs the rejection.
 
-    Discovery-Modus: wenn TELEGRAM_ALLOWED_USER_ID leer ist, wird jede eingehende
-    User-ID einmal geloggt und durchgelassen — dient nur dem Erstbefüllen der .env.
+    Discovery mode: if TELEGRAM_ALLOWED_USER_ID is empty, every incoming user ID
+    is logged and let through; this is only meant for filling in .env initially.
     """
     @functools.wraps(func)
     async def wrapper(update: Update, context, *args, **kwargs):
         user = update.effective_user
         uid = user.id if user else None
         if _ALLOWED_USER_ID is None:
-            logger.info("DISCOVERY — eingehende user_id=%s (username=%s)", uid, user.username if user else None)
+            logger.info("DISCOVERY — incoming user_id=%s (username=%s)", uid, user.username if user else None)
             return await func(update, context, *args, **kwargs)
         if uid != _ALLOWED_USER_ID:
-            logger.warning("REJECTED user_id=%s (erwartet %s)", uid, _ALLOWED_USER_ID)
+            logger.warning("REJECTED user_id=%s (expected %s)", uid, _ALLOWED_USER_ID)
             return
         return await func(update, context, *args, **kwargs)
     return wrapper
@@ -103,11 +105,11 @@ BOOTSTRAP_QUESTIONS = [
 
 
 # ---------------------------------------------------------------------------
-# I1: Inhaltliche Bestätigung (ENT-040)
+# I1: content confirmation (ENT-040)
 # ---------------------------------------------------------------------------
 
 def _format_write_confirmation(writes: list, graph_context: list) -> str:
-    """Render inhaltliche Bestätigung nach erfolgreichem Wiki-Write."""
+    """Render the content confirmation after a successful wiki write."""
     first = writes[0]
     content = first.get("content", "")
 
@@ -142,7 +144,7 @@ def _format_write_confirmation(writes: list, graph_context: list) -> str:
 
 
 # ---------------------------------------------------------------------------
-# I6: Menschlichere Fehler (ENT-041)
+# I6: friendlier errors (ENT-041)
 # ---------------------------------------------------------------------------
 
 _ERROR_KEYBOARD = InlineKeyboardMarkup([[
@@ -153,7 +155,7 @@ _ERROR_KEYBOARD = InlineKeyboardMarkup([[
 
 
 async def _reply_error_keyboard(update: Update, context, exc: Exception) -> None:
-    """Menschlichere Fehlermeldung mit InlineKeyboard (ENT-041)."""
+    """Friendlier error message with an inline keyboard (ENT-041)."""
     context.user_data["last_error"] = str(exc)
     await update.message.reply_text(
         "🤔 Hm — da ist was schiefgelaufen.\n"
@@ -163,7 +165,7 @@ async def _reply_error_keyboard(update: Update, context, exc: Exception) -> None
 
 
 async def handle_error_callback(update: Update, context) -> None:
-    """Callback handler für I6-Error-InlineKeyboard-Buttons."""
+    """Callback handler for the I6 error inline-keyboard buttons."""
     query = update.callback_query
     await query.answer()
 
@@ -173,7 +175,7 @@ async def handle_error_callback(update: Update, context) -> None:
             await query.message.reply_text("⚠️ Kein Event zum Wiederholen gespeichert.")
             return
         if context.user_data.get("retry_in_progress"):
-            return  # Idempotenz: Doppeldruck ignorieren
+            return  # idempotent: ignore a double tap
         context.user_data["retry_in_progress"] = True
         try:
             result = await asyncio.to_thread(run_ingest, raw_event)
@@ -193,7 +195,7 @@ async def handle_error_callback(update: Update, context) -> None:
         err = context.user_data.get("last_error", "(kein Detail gespeichert)")
         await query.message.reply_text(f"📋 Fehlerdetail:\n{err[:200]}")
 
-    # "error_dismiss": query.answer() bereits aufgerufen, keine weitere Aktion
+    # "error_dismiss": query.answer() was already called, nothing else to do
 
 
 # ---------------------------------------------------------------------------
@@ -355,7 +357,7 @@ async def bootstrap_cancel(update: Update, context) -> int:
 # ---------------------------------------------------------------------------
 
 async def _global_error_handler(update: object, context) -> None:
-    """Fängt Exceptions aus der Telegram-Library (Netz, API) die sonst das Polling killen."""
+    """Catch exceptions from the Telegram library (network, API) that would otherwise kill polling."""
     logger.error("uncaught handler error: %s", context.error, exc_info=context.error)
     if isinstance(update, Update) and update.message is not None:
         try:
@@ -393,14 +395,14 @@ def main() -> None:
 
     app.add_error_handler(_global_error_handler)
 
-    # Whisper-Warm-up: ~460 MB Download nur einmal beim allerersten Start;
-    # verhindert Sekunden-stille bei der ersten User-Voice (Session 020: 703s).
+    # Whisper warm-up: the ~460 MB download happens only on the very first start;
+    # avoids a long silence on the user's first voice note (session 020: 703 s).
     from agents.extractors.audio_extractor import _get_model
-    logger.info("Lade Whisper-Modell (einmalig beim Start)...")
+    logger.info("Loading Whisper model (once at startup)...")
     _get_model()
-    logger.info("Whisper-Modell bereit.")
+    logger.info("Whisper model ready.")
 
-    logger.info("Bot gestartet — polling...")
+    logger.info("Bot started — polling...")
     app.run_polling(drop_pending_updates=True)
 
 

@@ -1,17 +1,17 @@
-"""BL-14/BL-15: Index-/Reader-Aufnahme von TopicPage + human-owned Familie.
+"""BL-14/BL-15: index/reader support for TopicPage + the human-owned family.
 
-R9-Pflichttest (Brief 031, QM Workshop-02): eine Fixture-TopicPage muss nach
-``rebuild_index`` (a) in ``index.md`` sichtbar und (b) via
-``search_wiki(page_type="TopicPage")`` auffindbar sein — die Index-Aufnahme
-ist Batch-Merge-kritisch: ohne sie legt der laufende Betrieb stumm Duplikate
-an. Der Test laeuft gegen den heutigen realen Such-Pfad (index.md, Brief F4;
-der FTS5-Test gegen echte ``wiki_index.db`` ist BL-09-Scope/QK-22).
+R9 mandatory test (brief 031, QM workshop 02): after ``rebuild_index`` a
+fixture TopicPage must be (a) visible in ``index.md`` and (b) findable via
+``search_wiki(page_type="TopicPage")``. Index support is critical for batch
+merges: without it, continuous operation would silently create duplicates.
+The test runs against today's real search path (index.md, brief F4; the FTS5
+test against a real ``wiki_index.db`` is BL-09 scope / QK-22).
 
-Analog fuer die human-owned Typen-Familie (SCHEMA §3.10, ENT-062): Sektion
-``Human-Owned (health)`` beendet die Index-Blindheit der Health-Seiten.
+Likewise for the human-owned type family (SCHEMA §3.10, ENT-062): the
+``Human-Owned (health)`` section ends the health pages' invisibility in the index.
 
-Fixtures werden pro Test in ``tmp_path`` gebaut (kein Live-Wiki-Zugriff,
-Muster aus test_index_rebuild.py).
+Fixtures are built per test in ``tmp_path`` (no live wiki access, pattern from
+test_index_rebuild.py). Their page content is German, like real vault content.
 """
 
 from __future__ import annotations
@@ -83,21 +83,21 @@ def _build_wiki(tmp_path: Path) -> Path:
     (wiki / "topics" / "tp_health_sauna.md").write_text(
         TOPICPAGE_MD, encoding="utf-8")
     (wiki / "personal" / "health").mkdir(parents=True)
-    # Teilt das Slug-Token "sauna" mit der TopicPage — noetig fuer
-    # den page_type-Filter-Test unten.
+    # Shares the slug token "sauna" with the TopicPage — needed for the
+    # page_type filter test below.
     (wiki / "personal" / "health" / "02_protocol_sauna.md").write_text(
         HEALTH_MD, encoding="utf-8")
     return wiki
 
 
 def test_topicpage_indexed_and_searchable(tmp_path: Path) -> None:
-    """R9: Fixture-TopicPage → rebuild_index → index.md + search_wiki-Treffer."""
+    """R9: fixture TopicPage → rebuild_index → index.md + search_wiki hit."""
     mod = _load_module()
     wiki = _build_wiki(tmp_path)
     result = mod.run(wiki_dir=wiki, index_path=tmp_path / "index.md")
 
     assert "## TopicPages (1)" in result["rendered"]
-    # _summary()-Vertrag: "<topic> (<domain>, N Quellen)"
+    # _summary() contract: "<topic> (<domain>, N Quellen)"
     assert "- [[tp_health_sauna]] — sauna (health, 2 Quellen)" \
         in result["rendered"]
 
@@ -105,11 +105,11 @@ def test_topicpage_indexed_and_searchable(tmp_path: Path) -> None:
     assert len(hits) == 1
     assert hits[0].page_type == "TopicPage"
     assert hits[0].path == "wiki/topics/tp_health_sauna.md"
-    assert (tmp_path / hits[0].path).exists()  # _ref_to_path zeigt auf echtes File
+    assert (tmp_path / hits[0].path).exists()  # _ref_to_path points to a real file
 
 
 def test_health_pages_indexed_and_searchable(tmp_path: Path) -> None:
-    """ENT-062 Punkt 3: Human-Owned-Sektion beendet die Index-Blindheit."""
+    """ENT-062 point 3: the Human-Owned section makes health pages visible in the index."""
     mod = _load_module()
     wiki = _build_wiki(tmp_path)
     result = mod.run(wiki_dir=wiki, index_path=tmp_path / "index.md")
@@ -123,12 +123,12 @@ def test_health_pages_indexed_and_searchable(tmp_path: Path) -> None:
 
 
 def test_type_filter_separates_sections(tmp_path: Path) -> None:
-    """page_type-Filter trennt TopicPage von human-owned Treffern."""
+    """The page_type filter separates TopicPage from human-owned hits."""
     mod = _load_module()
     wiki = _build_wiki(tmp_path)
     mod.run(wiki_dir=wiki, index_path=tmp_path / "index.md")
 
-    # "sauna" ist Slug-Token beider Seiten — der Filter muss trennen.
+    # "sauna" is a slug token of both pages — the filter must separate them.
     tp_hits = search_wiki("sauna", page_type="TopicPage", wiki_root=tmp_path)
     assert {h.path for h in tp_hits} == {"wiki/topics/tp_health_sauna.md"}
     ho_hits = search_wiki("sauna", page_type="HumanOwned", wiki_root=tmp_path)

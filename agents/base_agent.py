@@ -1,10 +1,10 @@
 """base_agent.py — Abstract base for all Knowledge-OS agents.
 
 Provider selection (automatic, no code changes needed):
-  ANTHROPIC_API_KEY set   →  Claude Haiku 4.5 / Sonnet 4.6  (Produktion)
-  ANTHROPIC_API_KEY unset →  Ollama lokal (beide Rollen, für Tests)
+  ANTHROPIC_API_KEY set   →  Claude Haiku 4.5 / Sonnet 4.6  (production)
+  ANTHROPIC_API_KEY unset →  local Ollama (both roles, for tests)
 
-Ollama-Konfiguration via Umgebungsvariablen:
+Ollama configuration via environment variables:
   OLLAMA_HOST   (default: http://localhost:11434)
   OLLAMA_MODEL  (default: llama3.2)
 """
@@ -28,7 +28,7 @@ _CLAUDE_HAIKU  = "claude-haiku-4-5-20251001"
 _CLAUDE_SONNET = "claude-sonnet-4-6"
 _DEFAULT_SYSTEM = "You are a precise assistant. Answer exactly as instructed."
 
-# Pricing per 1M tokens (USD), Stand 2026-04
+# Pricing per 1M tokens (USD), as of 2026-04
 _COST_PER_M: dict[str, dict[str, float]] = {
     _CLAUDE_HAIKU:  {"input": 0.80,  "output": 4.00},
     _CLAUDE_SONNET: {"input": 3.00,  "output": 15.00},
@@ -53,7 +53,7 @@ class BaseAgent(ABC):
         self._provider = "claude" if anthropic_client is not None else "ollama"
         if self._provider == "ollama":
             logger.info(
-                "%s: kein Anthropic-Client — Ollama-Fallback aktiv (Modell: %s)",
+                "%s: no Anthropic client — Ollama fallback active (model: %s)",
                 self.__class__.__name__,
                 _OLLAMA_MODEL,
             )
@@ -112,7 +112,7 @@ class BaseAgent(ABC):
 
         logger.info(
             "Claude %s | in=%d out=%d | call=$%.5f | session=$%.4f",
-            model.split("-")[1],  # "haiku" oder "sonnet"
+            model.split("-")[1],  # "haiku" or "sonnet"
             in_tok, out_tok, call_cost, _session_cost_usd,
         )
 
@@ -138,11 +138,11 @@ class BaseAgent(ABC):
             return resp.json()["message"]["content"]
         except requests.exceptions.ConnectionError:
             raise RuntimeError(
-                f"Ollama nicht erreichbar unter {_OLLAMA_BASE}. "
-                "Starte Ollama mit: ollama serve"
+                f"Ollama not reachable at {_OLLAMA_BASE}. "
+                "Start Ollama with: ollama serve"
             ) from None
         except requests.exceptions.HTTPError as e:
             raise RuntimeError(
-                f"Ollama HTTP-Fehler: {e}. "
-                f"Modell '{_OLLAMA_MODEL}' vorhanden? Prüfe mit: ollama list"
+                f"Ollama HTTP error: {e}. "
+                f"Is model '{_OLLAMA_MODEL}' installed? Check with: ollama list"
             ) from e

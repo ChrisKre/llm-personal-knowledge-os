@@ -1,7 +1,8 @@
-"""test_voice.py — MVP-2 Voice-Ingest Trocken-Test.
+"""test_voice.py — MVP-2 voice ingest dry-run test.
 
-Generiert (oder nimmt) Audio-Files, transkribiert via faster-whisper und
-fuehrt sie durch die Ingest-Pipeline (Dry-Run by default).
+Generates (or takes) audio files, transcribes them with faster-whisper and
+runs them through the ingest pipeline (dry run by default). The generated
+samples are intentionally German, Spanish and mixed speech.
 
 Usage:
     python scripts/test_voice.py --generate          # synth DE+ES+Mix samples
@@ -79,10 +80,10 @@ def _run_pipeline(extracted, write: bool) -> dict:
         import agents.graph_writer as _gw
         import main_workflow as _mw
         def _dry(writes, wiki_root=None):
-            print(f"      [DRY-RUN] execute_writes() wuerde {len(writes)} Datei(en) schreiben.")
+            print(f"      [DRY-RUN] execute_writes() would write {len(writes)} file(s).")
         _gw.execute_writes = _dry
         _mw.execute_writes = _dry
-        # Verhindert Ghost-Eintraege im index.md (Dry-Run-Befund Session 021).
+        # Prevents ghost entries in index.md (dry-run finding, session 021).
         _mw._update_index = lambda s, wiki_root=None: None
 
     from main_workflow import run_ingest

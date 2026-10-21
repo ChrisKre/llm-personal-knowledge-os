@@ -1,30 +1,30 @@
-"""Migrations package — versionierte Wiki/Schema-Migrationen.
+"""Migrations package — versioned wiki/schema migrations.
 
-Konvention (etabliert in BL-03 / BL-12, Workshop S025):
+Convention (established in BL-03 / BL-12, workshop S025):
 
-- **Datei-Naming:** ``YYYY-MM-DD_<short_name>.py``. Datum = Tag des Schreibens
-  (nicht des Laufs). Reihenfolge der Anwendung lexikographisch.
-- **Skript-Schnittstelle:** jedes Modul exportiert
-  - ``MIGRATION_NAME``  — entspricht dem Filename ohne Suffix
+- **File naming:** ``YYYY-MM-DD_<short_name>.py``. The date is the day the
+  migration was written (not run). Migrations are applied in lexicographic order.
+- **Script interface:** every module exports
+  - ``MIGRATION_NAME``  — the file name without suffix
   - ``run(wiki_root: Path, *, require_backup_branch: bool = True, dry_run: bool = False) -> dict``
     Return: ``{"changed": [paths], "skipped": [paths]}``
-- **Pflicht-Auflagen fuer destruktive Migrationen** (QM-Auflage QK-8 aus
-  S025-Workshop):
-  1. **Backup-Branch:** das Skript prueft die Existenz von
-     ``backup/pre-<short_name>`` und bricht ab, wenn der Branch fehlt
-     (ueberspringbar nur fuer Tests via ``require_backup_branch=False``).
-  2. **Idempotenz:** zweiter Lauf gegen migrierten Stand darf keine Schreibvorgaenge
-     produzieren (``changed == []``).
-  3. **anki_id-Erhaltung:** Migrationen, die VocabEntry-Frontmatter anfassen,
-     muessen ``anki_id`` byte-identisch zurueckschreiben (ENT-052).
-- **Lauf-Log:** ``scripts/migrations/applied.json`` ist ein flaches Mapping
-  ``{"<MIGRATION_NAME>": "<iso-timestamp>"}``. Jede Migration appended ihren
-  Eintrag *nach* erfolgreichem Lauf. Schon vorhandene Eintraege werden mit
-  neuem Timestamp ueberschrieben (Re-Lauf-Erlaubnis bei Idempotenz).
-- **Aufruf-Pfad fuer den Operator:**
-  ``python -m scripts.migrations.<MIGRATION_NAME>`` (Module-Run, keine separate
-  Runner-CLI bis BL-12-Phase-2 das aendert).
+- **Mandatory requirements for destructive migrations** (QM requirement QK-8
+  from the S025 workshop):
+  1. **Backup branch:** the script checks that ``backup/pre-<short_name>``
+     exists and aborts if it is missing (can only be skipped in tests via
+     ``require_backup_branch=False``).
+  2. **Idempotency:** a second run against the migrated state must not write
+     anything (``changed == []``).
+  3. **anki_id preservation:** migrations that touch VocabEntry frontmatter
+     must write ``anki_id`` back byte-identically (ENT-052).
+- **Run log:** ``scripts/migrations/applied.json`` is a flat mapping
+  ``{"<MIGRATION_NAME>": "<iso-timestamp>"}``. Each migration appends its
+  entry *after* a successful run. Existing entries are overwritten with a new
+  timestamp (re-runs are allowed because migrations are idempotent).
+- **How the operator runs one:**
+  ``python -m scripts.migrations.<MIGRATION_NAME>`` (module run; there is no
+  separate runner CLI until BL-12 phase 2 changes that).
 
-Tests liegen in ``tests/migrations/``. Fixtures: ``before/`` (Pre-Migrations-
-Snapshot) + ``after/`` (Post-Snapshot) + ``anki_id_snapshot.json``.
+Tests live in ``tests/migrations/``. Fixtures: ``before/`` (pre-migration
+snapshot) + ``after/`` (post snapshot) + ``anki_id_snapshot.json``.
 """

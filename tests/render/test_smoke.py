@@ -1,4 +1,4 @@
-"""Smoke-Test: Anki-Export-Modul ist importierbar."""
+"""Smoke test: the Anki export module is importable."""
 
 
 def test_export_anki_imports():

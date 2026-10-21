@@ -1,10 +1,10 @@
-"""scripts/init_wiki.py — First-Run-Setup für das LLM-Personal-Knowledge-OS.
+"""scripts/init_wiki.py — first-run setup for the LLM-Personal-Knowledge-OS.
 
-Legt alle notwendigen Verzeichnisse und Dateien an damit bot.py und main_workflow.py
-ohne Fehler starten können.
+Creates all directories and files in the vault that bot.py and main_workflow.py
+need to start without errors. The generated templates are German (vault content).
 
-Aufruf: python scripts/init_wiki.py
-        python scripts/init_wiki.py --force   # überschreibt existierende Dateien
+Usage: python scripts/init_wiki.py
+       python scripts/init_wiki.py --force   # overwrites existing files
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ from agents.config import VAULT_ROOT  # noqa: E402
 
 TODAY = date.today().isoformat()
 
-# Verzeichnisse die existieren müssen
+# Directories that must exist
 REQUIRED_DIRS = [
     "wiki/personal/facts",
     "wiki/personal/stories",
@@ -180,7 +180,7 @@ def create_dirs(repo_root: Path) -> None:
 def create_file(path: Path, content: str, force: bool, root: Path = VAULT_ROOT) -> bool:
     """Create file if it doesn't exist (or force=True). Returns True if written."""
     if path.exists() and not force:
-        print(f"  SKIP  {path.relative_to(root)}  (bereits vorhanden, --force zum Überschreiben)")
+        print(f"  SKIP  {path.relative_to(root)}  (already exists, use --force to overwrite)")
         return False
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
@@ -189,32 +189,32 @@ def create_file(path: Path, content: str, force: bool, root: Path = VAULT_ROOT) 
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="First-Run-Setup für das LLM-Personal-Knowledge-OS")
-    parser.add_argument("--force", action="store_true", help="Überschreibt existierende Dateien")
-    parser.add_argument("--root", type=Path, default=VAULT_ROOT, help="Vault-Root (Standard: KOS_VAULT_ROOT bzw. sample_vault/)")
+    parser = argparse.ArgumentParser(description="First-run setup for the LLM-Personal-Knowledge-OS")
+    parser.add_argument("--force", action="store_true", help="Overwrite existing files")
+    parser.add_argument("--root", type=Path, default=VAULT_ROOT, help="Vault root (default: KOS_VAULT_ROOT, else sample_vault/)")
     args = parser.parse_args()
 
     root: Path = args.root.resolve()
     force: bool = args.force
 
     print(f"\nLLM-Personal-Knowledge-OS — First-Run-Setup")
-    print(f"Vault-Root: {root}\n")
+    print(f"Vault root: {root}\n")
 
-    print("1. Verzeichnisse anlegen...")
+    print("1. Creating directories...")
     create_dirs(root)
-    print(f"   {len(REQUIRED_DIRS)} Verzeichnisse bereit.\n")
+    print(f"   {len(REQUIRED_DIRS)} directories ready.\n")
 
-    print("2. System-Dateien anlegen...")
+    print("2. Creating system files...")
     create_file(root / "index.md",                                 INDEX_MD_TEMPLATE,                 force, root)
     create_file(root / "log.md",                                   LOG_MD_TEMPLATE,                   force, root)
     create_file(root / "user_profile.md",                          USER_PROFILE_TEMPLATE,             force, root)
     create_file(root / "wiki/language/user_language_profile.md",   USER_LANGUAGE_PROFILE_TEMPLATE,    force, root)
 
-    print("\nSetup abgeschlossen.")
-    print("\nNächste Schritte:")
-    print("  1. .env anlegen: ANTHROPIC_API_KEY=sk-ant-... und TELEGRAM_BOT_TOKEN=...")
-    print("  2. Ingest-Test: python -c \"from main_workflow import run_ingest; ...\"")
-    print("  3. Bot starten: python bot.py\n")
+    print("\nSetup complete.")
+    print("\nNext steps:")
+    print("  1. Create .env from .env.example (TELEGRAM_BOT_TOKEN, optionally ANTHROPIC_API_KEY)")
+    print("  2. Ingest test: python scripts/test_ingest.py \"...\"")
+    print("  3. Start the bot: python bot.py\n")
 
 
 if __name__ == "__main__":

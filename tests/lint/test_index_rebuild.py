@@ -1,23 +1,23 @@
-"""BL-04: Tests fuer scripts/rebuild_index.py.
+"""BL-04: tests for scripts/rebuild_index.py.
 
-Drei Pflicht-Pruefungen aus Brief S027:
+Three mandatory checks from brief S027:
 
-- **Snapshot-Match:** rebuild gegen ``fixtures/wiki_mock/`` produziert exakt
-  das gespeicherte ``__snapshots__/index.md.snap``.
-- **Idempotenz:** zweiter Lauf gegen unveraenderten Stand schreibt nichts
-  (``changed == False``); analog zur QM-Auflage QK-8 fuer Migrationen
-  (Brief S027: "Idempotenz-Test ist QM-Standard fuer BL-04 ebenfalls Pflicht").
-- **Defensive-Skip:** ``broken_yaml.md`` (Frontmatter mit unaufgeloesten
-  ``[[[`` und bare ``?``) landet in ``result["skipped"]``, der Lauf bricht
-  nicht ab (Brief S027 §F2).
+- **Snapshot match:** a rebuild against ``fixtures/wiki_mock/`` produces exactly
+  the stored ``__snapshots__/index.md.snap``.
+- **Idempotency:** a second run against an unchanged tree writes nothing
+  (``changed == False``); like QM requirement QK-8 for migrations
+  (brief S027: "the idempotency test is QM standard and mandatory for BL-04 too").
+- **Defensive skip:** ``broken_yaml.md`` (frontmatter with unresolved ``[[[``
+  and a bare ``?``) ends up in ``result["skipped"]``; the run does not abort
+  (brief S027 §F2).
 
-Fixture-Layout:
-- ``tests/lint/fixtures/wiki_mock/`` — kleines Wiki-Tree-Mock (5 valide
-  Files + 1 broken_yaml).
-- ``tests/lint/__snapshots__/index.md.snap`` — eingefrorenes Soll-Output.
+Fixture layout:
+- ``tests/lint/fixtures/wiki_mock/`` — a small wiki tree mock (5 valid
+  files + 1 broken_yaml).
+- ``tests/lint/__snapshots__/index.md.snap`` — the frozen expected output.
 
-Loading: das Skript lebt in ``scripts/rebuild_index.py`` und ist als Modul
-importierbar via ``importlib.util`` (kein ``scripts/__init__.py``).
+Loading: the script lives in ``scripts/rebuild_index.py`` and is imported as a
+module via ``importlib.util``.
 """
 
 from __future__ import annotations
