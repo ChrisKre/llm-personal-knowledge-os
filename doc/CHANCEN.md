@@ -27,10 +27,8 @@ Wenn sich LLMs, Provider oder APIs ändern, liegt das gesamte Wissen trotzdem al
 
 ## 2. Ungenutztes Potential (im aktuellen Scope)
 
-### 2.1 `practice_log` als Trainingsdaten-Quelle (GE-002 Kandidat)
-Jeder Story-Lab-Durchlauf erzeugt einen `practice_log`-Eintrag mit Transkript + Selbstbewertung + System-Feedback. Das ist **annotierter Personal-Content** — die teuerste Zutat für Finetuning. Nach 100+ Einträgen: genug für ein experimentelles LoRA-Finetune eines kleinen Modells.
-
-Das offene Gedankenexperiment "Graph als LLM-Trainingsdaten" (aus Session 010) sollte genau hier ansetzen — siehe `sessions_gedankenexperiment/ge_002_graph-als-trainingsdaten.md` (vorgeschlagen).
+### 2.1 ~~`practice_log` als Trainingsdaten-Quelle (GE-002 Kandidat)~~ — verworfen (2026-10-21)
+**Verworfen, außerhalb des Projekt-Scopes.** Das Projekt trainiert oder finetuned keine Modelle; `practice_log` dient ausschließlich dem Lernfortschritt des Nutzers (Story Lab, Vergleich über Zeit, Mastery). Siehe ROADMAP.md, "Not planned".
 
 ### 2.2 StyleProfile als Persönlichkeits-Signatur
 Die kontext-abhängigen `context_profiles` (ENT-020) sind konzeptuell eine **empirische Persönlichkeits-Signatur** über Zeit. Nach 6 Monaten Daten: messbare Drift, Wachstum, Entwicklung. Das ist ein Feature, das Coaching-Apps normalerweise nur simulieren.
@@ -64,10 +62,8 @@ Die Korrelations-Engine (ENT-010) erzeugt Concept-Seiten bei ≥3 verwandten Fac
 
 ## 4. Strategische Chancen (höheres Risiko, höheres Potential)
 
-### 4.1 Finetuning auf persönlichen Daten (GE-002)
-Wenn sich genug annotierte Erzählungen angesammelt haben: **LoRA-Finetune eines Open-Source-Modells** auf dem eigenen Stil. Das Modell würde dann nicht mehr generisches Feedback geben, sondern "in deiner Stimme". Offene Fragen: Datenmenge? Overfitting? Synthetische Daten aus dem Graphen generierbar?
-
-Das Gedankenexperiment ist in sessions/010 als Aufgabe markiert — siehe Nachtrag dort.
+### 4.1 ~~Finetuning auf persönlichen Daten (GE-002)~~ — verworfen (2026-10-21)
+**Verworfen, außerhalb des Projekt-Scopes.** Kein Training und kein Finetuning von Modellen; das Projekt nutzt gehostete oder lokale LLMs unverändert. Die Idee aus sessions/010 wurde nie umgesetzt (GE-002 nicht angelegt, siehe sessions/011).
 
 ### 4.2 Multi-User-Variante (Familien-Graph)
 Der Graph ist technisch trivial duplizierbar, aber das Konzept skaliert sozial: **gemeinsamer Familien-Graph mit persönlichen Sub-Graphen**. Geteilte Events, aber private Interpretationen. Erfordert Zugriffsschicht — großer Umbau, aber nicht unmöglich.
