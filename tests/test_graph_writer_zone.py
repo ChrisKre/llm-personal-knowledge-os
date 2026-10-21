@@ -82,8 +82,7 @@ def test_find_zone_owner_violations(tmp_path: Path) -> None:
     ]
 
 
-def test_live_zone_only_known_gap() -> None:
-    """Live-Repo: einzige bekannte Lücke ist antwort_deepresearch.md (kein FM,
-    PO-Eskalation aus Brief F5) — alle 14 typisierten Seiten sind geflaggt."""
-    violations = find_zone_owner_violations()
-    assert violations == ["wiki/personal/health/antwort_deepresearch.md"]
+def test_default_vault_zone_has_no_violations() -> None:
+    """Default vault (sample_vault, pinned by tests/conftest.py): the detector
+    runs against config.VAULT_ROOT and the bundled vault has no violations."""
+    assert find_zone_owner_violations() == []
