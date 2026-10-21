@@ -515,7 +515,7 @@
 
 ### [ENT-055] IPA-Frontmatter-Slot für VocabEntry (Schema-Erweiterung)
 - **Entschieden:** 2026-05-08 (Session 025, Workshop-Phase 5, PO-Beschluss)
-- **Entscheidung:** [SCHEMA.md §3.2 VocabEntry](../doc/SCHEMA.md) wird um ein optionales Frontmatter-Feld `ipa: <string|null>` erweitert.
+- **Entscheidung:** [SCHEMA.md §3.2 VocabEntry](../doc/de/SCHEMA.md) wird um ein optionales Frontmatter-Feld `ipa: <string|null>` erweitert.
   1. **Format:** IPA-Aussprache als String mit Klammern, sprachspezifisch (z.B. `"[ˈdwen.de]"` für `duende`, `"[mað.ɾuˈɣa.ða]"` für `madrugada`). Null/leer = nicht gefüllt.
   2. **Pflicht:** **nein** — optional pro Wort. Renderer ([Workshop §B5 UX](../workshop/02_ux.md)) skipt leer (kein "(no IPA)"-Lärm).
   3. **Backfill-Pflicht:** **nein.** Bestehende 7 elaborierte Vocab-Files bleiben ohne `ipa:` (nach BL-03 Frontmatter-Migration). Wenn ein Lerner künftig eine Karte mit IPA wünscht, kann er das Feld manuell ergänzen oder den Language-Agent neu laufen lassen.
@@ -523,7 +523,7 @@
   5. **Render-Slot:** `agents/render/card.py` ([Workshop §B5 UX](../workshop/02_ux.md), BL-05) liest `ipa`-Frontmatter, rendert als zweite Zeile unter dem Wort (Profil A/B/C — siehe [02_ux.md §B2/B3](../workshop/02_ux.md)).
   6. **Sprachspezifische Formate:** Standard-IPA bleibt Default; pro Sprache kann der Language-Agent Konventions-Hinweise einbauen (z.B. spanisches IPA mit `ð`/`ɣ`-Spirantisierungs-Notation).
 - **Begründung:** UX-Empfehlung ([02 §B5](../workshop/02_ux.md)) für visuellen Aussprache-Anker direkt unter dem Wort. Architekt-Verdict ([03 §A1 [02 §B5 IPA]](../workshop/03_architect.md)): Frontmatter ist robuster als Body-Sektion `## Aussprache > IPA` (kein Markdown-Heading-Parsing, kein Konflikt mit künftigen `## Aussprache`-Bereichen). Optional + sprachspezifisch + kein Backfill = additiver Eingriff ohne Bruch-Risiko. Schema-Erweiterung ist additiv zu [ENT-005](#ent-005-schema-v03-entitäts-ontologie) — kein Revisions-ENT nötig (additive Erweiterung von Optional-Feldern fällt unter Erweiterung, nicht Änderung).
-- **Auswirkung:** Architekt setzt um in BL-05 (Render-Modul liest IPA) und parallel im Language-Agent (neuer Vocab-Erstellungs-Prompt). [SCHEMA.md §3.2](../doc/SCHEMA.md) wird mit `ipa: <string|null>` ergänzt — Architekt-Auftrag in BL-11 oder mit BL-05. UX-HTML-Mockups in [02_ux.md §B2/B3](../workshop/02_ux.md) bleiben gültig auch ohne IPA (Fallback-Skip).
+- **Auswirkung:** Architekt setzt um in BL-05 (Render-Modul liest IPA) und parallel im Language-Agent (neuer Vocab-Erstellungs-Prompt). [SCHEMA.md §3.2](../doc/de/SCHEMA.md) wird mit `ipa: <string|null>` ergänzt — Architekt-Auftrag in BL-11 oder mit BL-05. UX-HTML-Mockups in [02_ux.md §B2/B3](../workshop/02_ux.md) bleiben gültig auch ohne IPA (Fallback-Skip).
 - **Status:** beschlossen, Umsetzung ausstehend (BL-05 + SCHEMA.md-Eintrag in Implementierungs-Session 026+).
 
 ---
@@ -549,7 +549,7 @@
 ---
 
 ## Session 030 — Workshop 02: Fremdwissen-Ingestion (2026-07-04)
-> Sechs ENT-Einträge aus Workshop-02-Phase 4 (PO-Synthese). Quelle: [workshop_02/04_po_synthesis.md](../workshop_02/04_po_synthesis.md), ENT-Bedarfs-Liste in [workshop_02/03_qm.md](../workshop_02/03_qm.md). Charta: [workshop_02/README.md](../workshop_02/README.md).
+> Sechs ENT-Einträge aus Workshop-02-Phase 4 (PO-Synthese). Quelle: workshop_02/04_po_synthesis.md, ENT-Bedarfs-Liste in workshop_02/03_qm.md. Charta: workshop_02/README.md.
 
 ### [ENT-057] Neuer Entitätstyp `TopicPage` für Fremdwissen (SCHEMA §3.9)
 - **Entschieden:** 2026-07-04 (Session 030, Workshop-02-Phase 4, PO-Beschluss)
@@ -557,9 +557,9 @@
   1. **Prefix/Ablage:** `tp_`, Dateiname `tp_[domain]_kebab-topic.md`, Verzeichnis `wiki/topics/` (neu, top-level — Fremdwissen ist nicht der Nutzer, gehört nicht unter `personal/`).
   2. **`mode: claims | digest`** als domänen-abhängiger Degrade: `claims` = Konsens/Dissens/Einzelbefunde/why_relevant (empirisches Wissen); `digest` = Kernaussagen/Primärquelle-vs-Rezeption/Einordnung/why_relevant (Design-/Definitions-Wissen — löst den Karpathy-Pilot-Schema-Bruch im Typ, ohne Zweit-Typ).
   3. **`sources[]` strukturiert** (Pflicht, ≥1): `key` (Body-Attribution), `id` (kanonische Quell-ID: `yt:<video_id>` | `url:` | `sha1:` — Dedup-Anker), `path`, `author` (Klartext, kein `[[Wikilink]]`), `tier` (1–5, ENT-060), optional `published`.
-  4. **Claims leben im Body** in strikter, regex-parsebarer Zeilen-Grammatik ([workshop_02/02_architect.md §A4](../workshop_02/02_architect.md)); **kein globales `confidence`-Frontmatter** (eine Seite hat hohe und niedrige Claims); Beleg-Stelle pro Claim Pflicht (Abstain-Regel).
+  4. **Claims leben im Body** in strikter, regex-parsebarer Zeilen-Grammatik (workshop_02/02_architect.md §A4); **kein globales `confidence`-Frontmatter** (eine Seite hat hohe und niedrige Claims); Beleg-Stelle pro Claim Pflicht (Abstain-Regel).
   5. **Entsteht per Ingestion, nie emergent** — Abgrenzung zu `Concept` (ENT-010 unberührt). Clips, die das eigene System beschreiben, werden als `system_reference` klassifiziert und **nicht** destilliert (Ledger `skipped` + Report-Vorschlag für `doc/`-Verweis).
-- **Begründung:** Lebenszyklus-Trennung schlägt Feldökonomie — eine Concept-Erweiterung hätte zwei unvereinbare Entstehungspfade in einem Typ gemischt und jede künftige Concept-Logik (Lint, Korrelation, Synthese) mit `if sources:`-Verzweigungen belastet. Der Pilot ([workshop_02/pilot/](../workshop_02/pilot/)) belegt Struktur und Grenzen. Typen sind im Karpathy-Muster billig, Vermischung ist teuer.
+- **Begründung:** Lebenszyklus-Trennung schlägt Feldökonomie — eine Concept-Erweiterung hätte zwei unvereinbare Entstehungspfade in einem Typ gemischt und jede künftige Concept-Logik (Lint, Korrelation, Synthese) mit `if sources:`-Verzweigungen belastet. Der Pilot (workshop_02/pilot/) belegt Struktur und Grenzen. Typen sind im Karpathy-Muster billig, Vermischung ist teuer.
 - **Auswirkung:** SCHEMA §3.9 + §4-Zeile, `rebuild_index.py`-Sektion, `graph_reader`-Mappings — Umsetzung **BL-14** (Index-Aufnahme ist Batch-kritisch, QM R9: Pre-Req vor Batch, nicht „begleitend"). Kein Supervisor-Umbau.
 - **Status:** beschlossen, Umsetzung ausstehend (BL-14, Session 031)
 
@@ -574,7 +574,7 @@
 - **Entschieden:** 2026-07-04 (Session 030, Workshop-02-Phase 4, PO-Beschluss)
 - **Revidiert:** [ENT-056](#ent-056-draftmaster-workflow-formal-pausiert-für-mvp-2-zweitwelle-revidiert-ent-007) — partiell, exakt gemäß dessen §3-Re-Aktivierungs-Trigger.
 - **Entscheidung:** Der Draft→Master-Workflow (ENT-007) wird für alle **`source_ingest`-Writes** (Clippings-Batch + laufende TopicPage-Ingestion) **reaktiviert**: Batch und topic_agent schreiben WikiWrite-Objekte via `graph_writer.execute_writes()` auf `draft`; Review = Obsidian-Lektüre (Batch: 12–15 Seiten Lese-Pass, gewollt) bzw. Telegram-Freigabe (laufend); Merge via `approve_draft()`. **Stufe 5 des Batches ist atomar** (QM QK-17a): alle Seiten eines Laufs als Transaktion, Ledger-Commit erst nach dem letzten Write — verhindert stillen Seiten-Verlust bei Multi-Topic-Teilabbruch (R4). Die ENT-056-§4-Liste deterministischer Direct-Master-Writes (anki_id-Patch, Migrationen, Lint-Detektoren etc.) **bleibt unverändert gültig** — die Pause endet nur für den `source_ingest`-Pfad.
-- **Begründung:** ENT-056 §3 wörtlich: „Sobald LLM-getriggerte Wiki-Writes mit Halluzinations-Risiko dazukommen … Erste solche Wiki-Schreibe ist der Re-Aktivierungs-Trigger." Ein Sonnet-Freitext-Merge, der Gesundheits-Themen-Seiten erzeugt, ist dieser Fall — Architekt-Lesart ([02 §B5](../workshop_02/02_architect.md)), von QM bestätigt ([03 §R8-Kommentar](../workshop_02/03_qm.md)). Direct-Master wäre nur für deterministische Nicht-LLM-Writes legitim. **Pre-Req-Korrektur:** BL-01 (Branch-Bug) ist seit S026 gefixt (commit `e4d2f28`) — die Reaktivierung hat keine offene Code-Voraussetzung.
+- **Begründung:** ENT-056 §3 wörtlich: „Sobald LLM-getriggerte Wiki-Writes mit Halluzinations-Risiko dazukommen … Erste solche Wiki-Schreibe ist der Re-Aktivierungs-Trigger." Ein Sonnet-Freitext-Merge, der Gesundheits-Themen-Seiten erzeugt, ist dieser Fall — Architekt-Lesart (02 §B5), von QM bestätigt (03 §R8-Kommentar). Direct-Master wäre nur für deterministische Nicht-LLM-Writes legitim. **Pre-Req-Korrektur:** BL-01 (Branch-Bug) ist seit S026 gefixt (commit `e4d2f28`) — die Reaktivierung hat keine offene Code-Voraussetzung.
 - **Auswirkung:** Umsetzung **BL-17** (Batch Stufe 5) + **BL-19** (laufend). `reject_draft`/`approve_draft` werden erstmals produktiv genutzt.
 - **Status:** beschlossen, Umsetzung ausstehend (BL-17, Session 033+)
 
@@ -604,7 +604,7 @@
 - **Entscheidung:** Axiom 2 (SCHEMA.md §1: „Der Graph gehört der KI") wird **präzisiert**: Es gilt für den Graphen **außerhalb deklarierter human-owned Zonen**. Erste Zone: `wiki/personal/health/`.
   1. **Doppel-Kennzeichnung:** Verzeichnis-Deklaration in SCHEMA §2 (Enforcement) + `owner: human`-Frontmatter pro Seite (Portabilität, Obsidian-sichtbar, Lint-filterbar). Konsistenz-Check „Zone ⊄ owner-Flags" als Lint-Detektor.
   2. **Enforcement:** deterministischer Guard in `graph_writer.execute_writes()` (Write-Pfad in Zone → harte Exception) — und dieselbe Zonen-Prüfung als **geteilte Funktion vor jedem Datei-Write**, damit auch BL-07-Lint-Auto-Fixes sie nicht umgehen (QM R10/QK-19).
-  3. **Typen-Legalisierung:** `HealthProtocol`/`HealthReview`/`DeepResearchPrompt` werden als human-owned Typen-Familie in SCHEMA §3 registriert (Sammel-Absatz; Pflichtfelder `type`, `created`, `owner: human`) und in den Index aufgenommen — beendet die Index-Blindheit der 14 Health-Seiten (Architekt-Befund [02 §Teil C](../workshop_02/02_architect.md)).
+  3. **Typen-Legalisierung:** `HealthProtocol`/`HealthReview`/`DeepResearchPrompt` werden als human-owned Typen-Familie in SCHEMA §3 registriert (Sammel-Absatz; Pflichtfelder `type`, `created`, `owner: human`) und in den Index aufgenommen — beendet die Index-Blindheit der 14 Health-Seiten (Architekt-Befund 02 §Teil C).
   4. **KI-Verhältnis zur Zone:** lesen ja (graph_context), flaggen ja (Widerspruch TopicPage↔Protokoll → §8-Telegram-Frage, Nutzer entscheidet), schreiben/auto-fixen **nie**. Ownership-Wechsel ist ein bewusster Akt des Nutzers (Flag entfernen / Seite verschieben).
 - **Begründung:** C-2 ist die einzige Option, die den realen Workflow (Mensch entscheidet, KI liefert die Evidenzbasis daneben) verfassungsfest macht, statt ihn zu bekämpfen (C-1 Migration mitten im laufenden Human-owned-Betrieb) oder die Verfassung zu schleifen (C-3 Ko-Autorschaft entwertete den WikiWrite-Vertrag). Zugleich Voraussetzung des Workshop-Kern-Mehrwerts: `why_relevant` und Widerspruchs-Flags funktionieren nur, wenn die KI das Protokoll lesen kann. **ENT-Form:** Axiom 2 hatte nie eine eigene ENT-Nummer — dies ist der erste ENT dazu (Präzisierung, kein `revidiert:`-Verweis; ENT-002 ist nicht berührt).
 - **Auswirkung:** Umsetzung **BL-15** (SCHEMA-Edits + owner-Patch + Guard + Index-Sektion + Tests); Lint-Regeln in **BL-18**.

@@ -31,7 +31,7 @@
 
 ### Auftrag 2 — Felder-Maps prüfen (Frontmatter ↔ Slot)
 
-**Was:** Mapping-Tabelle in [02_ux.md §B5](../02_ux.md) gegen das aktuelle Schema ([SCHEMA.md §3](../../doc/SCHEMA.md), [v_es_madrugada.md](../../wiki/language/vocab/v_es_madrugada.md), [v_es_duende.md](../../wiki/language/vocab/v_es_duende.md)) prüfen.
+**Was:** Mapping-Tabelle in [02_ux.md §B5](../02_ux.md) gegen das aktuelle Schema ([SCHEMA.md §3](../../doc/de/SCHEMA.md), [v_es_madrugada.md](../../wiki/language/vocab/v_es_madrugada.md), [v_es_duende.md](../../wiki/language/vocab/v_es_duende.md)) prüfen.
 
 **Konkrete Prüfpunkte:**
 1. **`pos` (Word-Klasse)** — heute extrahiert der Renderer kein `pos`. Body-Sektion `## Grammatik > **Typ:** Verb|Nomen|…` ist da. UX schlägt vor, das in den Renderer aufzunehmen für Profil-D-Switch. Prüfen: Regex stabil? Was bei mehreren `**Typ:**`-Zeilen?
@@ -78,7 +78,7 @@
 
 **UX-Empfehlung:** Frontmatter-Feld `ipa: "[ˈdwen.de]"`. Begründung: robust gegen Body-Edits, leichtes Mapping zu Slot, Anki-Render und Discord-Embed nutzen denselben Wert.
 
-**Wenn du das ziehst:** in PO-Synthese als `[ENT-NEU?]` tragen, weil [SCHEMA.md §3](../../doc/SCHEMA.md) Schema-Schwenk ist.
+**Wenn du das ziehst:** in PO-Synthese als `[ENT-NEU?]` tragen, weil [SCHEMA.md §3](../../doc/de/SCHEMA.md) Schema-Schwenk ist.
 
 **Wenn du das *nicht* ziehst:** B2/B3-Mockups bleiben gültig, IPA-Block fehlt einfach, kein Bruch.
 

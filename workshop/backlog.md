@@ -68,7 +68,7 @@
 - **Quelle:** [03_architect.md §B1](03_architect.md), [01_ai_research.md §C1](01_ai_research.md), [04_qm.md §B2 R5](04_qm.md)
 - **Architekt-Status:** [MACHBAR-BEDINGT: Pre-Req BL-03 (sonst pyyaml-Verweigerung auf 7 Vocab-Files)]
 - **QM-Status:** P2-im-Backlog, hier P1 wegen Hebel auf Retrieval-Qualität (löst L2 + L3 in [01 §A3](01_ai_research.md)). Test gegen Fixture mit kaputtem Index. Kosten: einmalig ~$0,21 (Sonnet/Haiku-Pass für 21 Summaries).
-- **Bezug ENT:** kein neuer ENT — Indexierung war bereits in [ARCHITECTURE.md §6.1](../doc/ARCHITECTURE.md#61-graph-struktur-ingestion-flow) angelegt (`index_updater`-Phantom). Doku-Korrektur (`index_updater`-Status klarstellen) gehört zu BL-11.
+- **Bezug ENT:** kein neuer ENT — Indexierung war bereits in [ARCHITECTURE.md §6.1](../doc/de/ARCHITECTURE.md#61-graph-struktur-ingestion-flow) angelegt (`index_updater`-Phantom). Doku-Korrektur (`index_updater`-Status klarstellen) gehört zu BL-11.
 - **Definition of Done:**
   1. `scripts/rebuild_index.py` walkt `wiki/**/*.md`, liest Frontmatter, rendert one-line summary; falls `summary:` fehlt → einmaliger Sonnet/Haiku-Pass füllt es nach.
   2. `agents/frontmatter.py` als Single-Source-Helper für `read`/`write`/`patch` — alle drei heutigen Implementierungen (export_anki.py:79-98, language_agent.py:423-459, neues rebuild_index.py) nutzen ihn.
@@ -179,7 +179,7 @@
 - **Quelle:** [03_architect.md §B8](03_architect.md), [01_ai_research.md §C8](01_ai_research.md), [04_qm.md §B4 R18](04_qm.md)
 - **Architekt-Status:** [MACHBAR-BEDINGT: nach BL-07 (Lint-Live)]
 - **QM-Status:** OK / Backlog. Append-Diff-Mitigation reicht. Sonnet-OK bestätigt (interner Lint-Pass, nicht ENT-045-tangiert).
-- **Bezug ENT:** kein neuer ENT — bestätigt [ARCHITECTURE.md §3.4 Supervisor-als-Nutzer-Anwalt](../doc/ARCHITECTURE.md#34-supervisor-als-nutzer-anwalt).
+- **Bezug ENT:** kein neuer ENT — bestätigt [ARCHITECTURE.md §3.4 Supervisor-als-Nutzer-Anwalt](../doc/de/ARCHITECTURE.md#34-supervisor-als-nutzer-anwalt).
 - **Definition of Done:**
   1. `LintAgent.refresh_user_profile()` — Walk `wiki/personal/facts/`, aggregiert Sprach-Verteilung, Themen-Cluster, story_score-Statistiken.
   2. Sonnet-Call refresh `user_profile.md` einmal pro Woche, ~$0,05/Lauf.

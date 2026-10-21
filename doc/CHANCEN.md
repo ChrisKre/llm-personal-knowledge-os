@@ -130,22 +130,22 @@ Das Konzept ist open-source-freundlich. Andere Nutzer könnten eigene Graphen ba
 
 ## 8. Workshop-02-Radar-Ideen (Session 030, 2026-07-04)
 
-> Drei Ideen aus dem Fremdwissen-Ingestion-Workshop, die bewusst **nicht** ins Workshop-02-Backlog gezogen wurden. Detail-Begründung in [workshop_02/04_po_synthesis.md](../workshop_02/04_po_synthesis.md) §2 (Leitfrage 6) + §Anti-Decisions. Radar heißt: relevant, nicht jetzt.
+> Drei Ideen aus dem Fremdwissen-Ingestion-Workshop, die bewusst **nicht** ins Workshop-02-Backlog gezogen wurden. Detail-Begründung in workshop_02/04_po_synthesis.md §2 (Leitfrage 6) + §Anti-Decisions. Radar heißt: relevant, nicht jetzt.
 
 ### 8.1 Themen-Digest für TopicPages (Telegram/Discord) — Phase-2b-Rückholung
-- **Was:** Kompakte, scannbare Darstellung der Konsens/Dissens-Lage pro Themen-Seite als Digest-Nachricht (Consensus-Meter-artig, mit den in [workshop_02/01_ai_research.md §B2](../workshop_02/01_ai_research.md) dokumentierten Schwächen als Warnliste: keine Gleichgewichtung, Tier + Recency sichtbar). Erst dann braucht es einen eigenen `topic_page_to_render_dict`-Adapter — **keine** Generalisierung des Vocab-`RenderDict` (Anti-Decision 8, [02 §A5](../workshop_02/02_architect.md)).
-- **Trigger:** PO nimmt einen Digest-Kanal in den Scope (frühestens MVP-3, gekoppelt an ENT-045/ENT-049) **oder** der Nutzer meldet nach dem Batch das Obsidian-Format als unscannbar. Dann wird Phase 2b (klein, mit echtem Material) nachgeholt — Rückhole-Bedingung aus [02 §D3](../workshop_02/02_architect.md).
+- **Was:** Kompakte, scannbare Darstellung der Konsens/Dissens-Lage pro Themen-Seite als Digest-Nachricht (Consensus-Meter-artig, mit den in workshop_02/01_ai_research.md §B2 dokumentierten Schwächen als Warnliste: keine Gleichgewichtung, Tier + Recency sichtbar). Erst dann braucht es einen eigenen `topic_page_to_render_dict`-Adapter — **keine** Generalisierung des Vocab-`RenderDict` (Anti-Decision 8, 02 §A5).
+- **Trigger:** PO nimmt einen Digest-Kanal in den Scope (frühestens MVP-3, gekoppelt an ENT-045/ENT-049) **oder** der Nutzer meldet nach dem Batch das Obsidian-Format als unscannbar. Dann wird Phase 2b (klein, mit echtem Material) nachgeholt — Rückhole-Bedingung aus 02 §D3.
 - **Aufwand:** ~1 Tag UX-Konzept + ~2 Tage Render-Adapter.
 - **Risiko/Trade-off:** Digest ohne Nutzungs-Erfahrung wäre Spekulations-Design — genau deshalb Radar statt Backlog.
 
 ### 8.2 Seiten-Größen-Schwelle / Themen-Split-Vorschlag (Re-Merge-Drift)
-- **Was:** Claims werden nie gelöscht → TopicPages wachsen monoton; Re-Merge-Input-Tokens steigen über Monate, Lesbarkeit kippt bei >~30 Claims. Lint-Detektor: Seite >25 Claims → Telegram-Vorschlag „Themen-Split" (Nutzer entscheidet). Architekt-Risiko 3 in [02 §Risiken](../workshop_02/02_architect.md), QM-Frage F2.
+- **Was:** Claims werden nie gelöscht → TopicPages wachsen monoton; Re-Merge-Input-Tokens steigen über Monate, Lesbarkeit kippt bei >~30 Claims. Lint-Detektor: Seite >25 Claims → Telegram-Vorschlag „Themen-Split" (Nutzer entscheidet). Architekt-Risiko 3 in 02 §Risiken, QM-Frage F2.
 - **Trigger:** erste TopicPage überschreitet ~25 Claims (Beobachtung via Kosten-Telemetrie aus BL-19; heute hat die größte Pilot-Seite ~15).
 - **Aufwand:** ~2–3h (deterministischer Zähl-Detektor + Telegram-Frage, BL-07-Muster).
 - **Risiko/Trade-off:** Zu früher Split fragmentiert Themen — deshalb Vorschlag mit Nutzer-Entscheid, kein Auto-Split.
 
 ### 8.3 Statische Debunk-/Referenz-Liste für Health-Glaubwürdigkeit
-- **Was:** Gepflegte statische Liste vertrauenswürdiger/diskreditierter Autoren und Domains als Zusatz-Signal neben `source_tier` (ENT-060). Die Fehlinformations-Forschung ([01 §B3](../workshop_02/01_ai_research.md), Q6/Q9) belegt: externe Debunk-Listen heben die LLM-Erkennungsrate deutlich. Karpathy-konform (statische Markdown-/YAML-Liste, kein Vektor-Store, kein Live-Fact-Checking — letzteres bleibt Anti-Decision 9).
+- **Was:** Gepflegte statische Liste vertrauenswürdiger/diskreditierter Autoren und Domains als Zusatz-Signal neben `source_tier` (ENT-060). Die Fehlinformations-Forschung (01 §B3, Q6/Q9) belegt: externe Debunk-Listen heben die LLM-Erkennungsrate deutlich. Karpathy-konform (statische Markdown-/YAML-Liste, kein Vektor-Store, kein Live-Fact-Checking — letzteres bleibt Anti-Decision 9).
 - **Trigger:** erster belegter Falsch-Claim, der den Health-Verifikations-Pass (QK-15) passiert hat — dann ist ein zweites Signal gerechtfertigt.
 - **Aufwand:** ~2h (Liste + Prompt-Einbindung in Stufe 1/Klassifikation).
 - **Risiko/Trade-off:** Listen-Pflege ist manuelle Arbeit; veraltete Einträge erzeugen falsche Sicherheit. Klein anfangen (nur Korpus-Autoren).

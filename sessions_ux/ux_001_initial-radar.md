@@ -10,7 +10,7 @@
 
 Ich bin neu im Team. Der Bot läuft seit [sessions/013_2026-04-19.md](../sessions/013_2026-04-19.md) stabil im Ollama-Modus, MVP-1 wartet auf den Anthropic-Key ([ENT-038](../doc/ENTSCHEIDUNGEN.md)). Das ist eine ungewöhnlich gute Gelegenheit: Ich kann mich mit der UX-Oberfläche befassen, **ohne** laufende Implementierungsphasen zu stören. Alles was ich hier notiere, sind Beobachtungen und Ideen-Samen — gewichtet nach dem, was die Kollegen vermutlich an ihnen skeptisch machen würde.
 
-Gelesene Unterlagen (Kern): [doc/ARCHITECTURE.md](../doc/ARCHITECTURE.md) §7, [doc/COMP_SERVICES.md](../doc/COMP_SERVICES.md), [doc/CHANCEN.md](../doc/CHANCEN.md), [doc/ENTSCHEIDUNGEN.md](../doc/ENTSCHEIDUNGEN.md), [bot.py](../bot.py), [sessions/014_2026-04-19.md](../sessions/014_2026-04-19.md), [sessions/013_2026-04-19.md](../sessions/013_2026-04-19.md).
+Gelesene Unterlagen (Kern): [doc/ARCHITECTURE.md](../doc/de/ARCHITECTURE.md) §7, [doc/COMP_SERVICES.md](../doc/COMP_SERVICES.md), [doc/CHANCEN.md](../doc/CHANCEN.md), [doc/ENTSCHEIDUNGEN.md](../doc/ENTSCHEIDUNGEN.md), [bot.py](../bot.py), [sessions/014_2026-04-19.md](../sessions/014_2026-04-19.md), [sessions/013_2026-04-19.md](../sessions/013_2026-04-19.md).
 
 ---
 
@@ -60,7 +60,7 @@ Das ist technisch sauber, aber der Nutzer bleibt mit der Exception allein. Vorsc
 
 ### 2.6 Ambiguität wird stumm aufgelöst
 
-Wenn der Supervisor nicht sicher ist (vocab vs. personal_fact vs. beides), entscheidet er eigenständig. Der Nutzer merkt es erst, wenn er in Obsidian die "falsche" Einordnung sieht. [ARCHITECTURE.md §3.3](../doc/ARCHITECTURE.md) erwähnt bereits die Rückfrage-Option — wert, konkret auszuformulieren (I4).
+Wenn der Supervisor nicht sicher ist (vocab vs. personal_fact vs. beides), entscheidet er eigenständig. Der Nutzer merkt es erst, wenn er in Obsidian die "falsche" Einordnung sieht. [ARCHITECTURE.md §3.3](../doc/de/ARCHITECTURE.md) erwähnt bereits die Rückfrage-Option — wert, konkret auszuformulieren (I4).
 
 ### 2.7 Keine leichte Korrektur
 
@@ -108,7 +108,7 @@ Wenn `Supervisor.classify()` unsicher ist (z.B. confidence < 0.7 oder explizit `
 └────────────────────────────────────────────┘
 ```
 
-Nutzt Telegram `InlineKeyboardMarkup`, bereits in [ARCHITECTURE.md §7 Ebene 1](../doc/ARCHITECTURE.md) vorgesehen. Klick → Callback schreibt `user_hint` und ruft die Pipeline neu auf.
+Nutzt Telegram `InlineKeyboardMarkup`, bereits in [ARCHITECTURE.md §7 Ebene 1](../doc/de/ARCHITECTURE.md) vorgesehen. Klick → Callback schreibt `user_hint` und ruft die Pipeline neu auf.
 
 **PO-Bedenken:** Klingt nach Feature-Creep. — Eher nicht, weil der ambiguous-Fallback **heute stillschweigend irgendwas rät**. Ein Button-Fragezeichen ist fachlich ehrlicher und kostet keine zusätzlichen LLM-Calls.
 
@@ -189,7 +189,7 @@ Nutzer (jetzt, antwortet auf Bot-Nachricht):
 Bot: ✏️ Aktualisiert: Flamenco-Kurs → Malaga
 ```
 
-Extrem natürliche Korrektur-Geste, ohne eigenes Kommando. Benötigt: `raw_event`-Referenz im State-Dict, `update`-Modus im LangGraph-Flow (analog `append` in [WikiWrite](../doc/ARCHITECTURE.md)).
+Extrem natürliche Korrektur-Geste, ohne eigenes Kommando. Benötigt: `raw_event`-Referenz im State-Dict, `update`-Modus im LangGraph-Flow (analog `append` in [WikiWrite](../doc/de/ARCHITECTURE.md)).
 
 **Architekt-Bedenken:** LangGraph hat heute keinen Update-Pfad. — Ja, und genau deshalb ist das eine Architektur-Frage, nicht nur UX. Wenn für MVP-2 eh ein Update-Mechanismus kommt, lässt sich dieses UI-Muster nachträglich überstülpen.
 
@@ -217,7 +217,7 @@ Heute: Obsidian ist der Viewer. Problem: mobile Obsidian-Nutzung ist für viele 
 - Cluster-Visualisierung der Top-Concepts
 - Tap-to-edit für bestehende Facts
 
-Aufwand ~1 Woche ([ARCHITECTURE.md §7 Ebene 3](../doc/ARCHITECTURE.md)). **Nur wenn** messbar Mobile-Nutzer ein Editier-Problem haben. Heute nicht anfangen.
+Aufwand ~1 Woche ([ARCHITECTURE.md §7 Ebene 3](../doc/de/ARCHITECTURE.md)). **Nur wenn** messbar Mobile-Nutzer ein Editier-Problem haben. Heute nicht anfangen.
 
 #### I10 — "Konversationaler Bootstrap" statt 10-Fragen-Fragebogen
 

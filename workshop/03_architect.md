@@ -8,7 +8,7 @@
 
 - **Keine harten ARCH-VETOs.** Alle 01/02-Vorschläge sind Karpathy-konform und respektieren WikiWrite/ENT-006/ENT-039/Branch-master. Sechs Marker setze ich (3× ENT-NÖTIG, 3× ARCH-FRAGE) — Detail-Begründungen in §A.
 - **Reihenfolge ist scharf:** **C4 (Frontmatter-Migration) → C1 (Index-Reparatur) → Render-Modul-Trennung (UX-B5) → Health-Tag (C5a) → Lint-Live (C3).** Jede Stufe entriegelt die nächste; vorzeitige Schritte erben den jeweils ungelösten Schmerz.
-- **Architektur-Schulden, die der Workshop trifft, sind älter als der Workshop:** [graph_writer.py:55-65](../agents/graph_writer.py#L55-L65) verweist auf Branch `main` (verletzt ENT-039); `WIKI_PAGE_THRESHOLD = 30` in [graph_reader.py:20](../agents/graph_reader.py#L20) widerspricht [ARCHITECTURE.md §6.3](../doc/ARCHITECTURE.md#63-graph-reader--index-abstraktion) (`150`); `index_updater`-Node existiert im LangGraph-Plan, aber als Modul nicht im Repo. Diese drei sind keine Workshop-Themen, aber jeder neue Implementierungs-Pfad stolpert über sie.
+- **Architektur-Schulden, die der Workshop trifft, sind älter als der Workshop:** [graph_writer.py:55-65](../agents/graph_writer.py#L55-L65) verweist auf Branch `main` (verletzt ENT-039); `WIKI_PAGE_THRESHOLD = 30` in [graph_reader.py:20](../agents/graph_reader.py#L20) widerspricht [ARCHITECTURE.md §6.3](../doc/de/ARCHITECTURE.md#63-graph-reader--index-abstraktion) (`150`); `index_updater`-Node existiert im LangGraph-Plan, aber als Modul nicht im Repo. Diese drei sind keine Workshop-Themen, aber jeder neue Implementierungs-Pfad stolpert über sie.
 - **`out/anki_export_log.json` schlägt `usage_stats:` im Wiki** für den Health-Tag-Zeitstempel: deterministischer Pfad außerhalb des Wiki-Vertrags, kein graph_writer-Kontaktpunkt, kein Frontmatter-Schreib-Loop. Klare ARCH-Empfehlung an PO (§B5).
 - **C7 (LazyGraphRAG-Concepts) und UX-C2 (Discord-Wochen-Replay) bleiben `[NICHT-HEUTE]`** — Concepts brauchen Korpus-Größe (≥50 PFs, heute 10), Discord ist an [ENT-045](../doc/ENTSCHEIDUNGEN.md#ent-045-proaktiver-kanal-grundsätzlich-freigegeben-opt-in)-Aktivierung gekoppelt. Beide bleiben Backlog für MVP-3.
 
@@ -21,8 +21,8 @@
 | `01_ai_research.md §C4` | (!)ARCH-FRAGE(!) | Migration schreibt direkt auf `wiki/` — Verhältnis zum Draft→Master-Workflow | [ENT-007](../doc/ENTSCHEIDUNGEN.md#ent-007-draft--master-git-workflow-für-llm-writes) |
 | `01_ai_research.md §C5` | (!)ENT-NÖTIG(!) | Persistenz-Ort des `last_export`-Zeitstempels — `out/` vs. Wiki-Frontmatter | WikiWrite-Vertrag, [ENT-005](../doc/ENTSCHEIDUNGEN.md#ent-005-schema-v03-entitäts-ontologie) |
 | `01_ai_research.md §C6` | (!)ENT-NÖTIG(!) | Sensitivity-Tier-Verhältnis für Bild-Inputs (Vision-API ist Cloud) | [ENT-006](../doc/ENTSCHEIDUNGEN.md#ent-006-sensitivity-tier-modell-provider-routing) |
-| `02_ux.md §B5` | (!)ENT-NÖTIG(!) | IPA-Frontmatter-Slot ist Schema-Erweiterung | [ENT-005](../doc/ENTSCHEIDUNGEN.md#ent-005-schema-v03-entitäts-ontologie), [SCHEMA.md §3.2](../doc/SCHEMA.md) |
-| `02_ux.md §B5` | (!)ARCH-FRAGE(!) | Render-Modul-Standort `scripts/` vs. `agents/render/` | Modul-Hygiene, [SCHEMA.md §6.2](../doc/SCHEMA.md) |
+| `02_ux.md §B5` | (!)ENT-NÖTIG(!) | IPA-Frontmatter-Slot ist Schema-Erweiterung | [ENT-005](../doc/ENTSCHEIDUNGEN.md#ent-005-schema-v03-entitäts-ontologie), [SCHEMA.md §3.2](../doc/de/SCHEMA.md) |
+| `02_ux.md §B5` | (!)ARCH-FRAGE(!) | Render-Modul-Standort `scripts/` vs. `agents/render/` | Modul-Hygiene, [SCHEMA.md §6.2](../doc/de/SCHEMA.md) |
 | `02_ux.md §C1` | (!)ARCH-FRAGE(!) | Bot-Token paralleler Send vs. Long-Polling | [bot.py](../bot.py), python-telegram-bot |
 
 ### A1 — Detail-Begründung pro Marker
@@ -35,13 +35,13 @@ UX-Empfehlung: `out/anki_export_log.json` (gitignored). Alternative aus UX-Hando
 1. **WikiWrite-Vertrag-Schutz:** Der Wiki-Vertrag ist *LLM-Schreib-Wiki*. Jeder Frontmatter-Patch außerhalb Agent-Pfaden vergrößert die Liste der "Sonderwege" (heute genau einer: `anki_id`).
 2. **Atomarität:** Ein Export-Lauf produziert *eine* Log-Schreibe statt N Frontmatter-Patches. Re-Export-Idempotenz wird trivial.
 3. **Diff-Sauberkeit:** Wiki-Diffs in Obsidian zeigen weiterhin nur Inhalt, nicht Tooling-Metadaten.
-**Aber:** [SCHEMA.md §2 "raw/ ist heilig"](../doc/SCHEMA.md) gilt nicht für `out/` — `out/` ist Build-Artefakt-Ordner (gitignored). Trotzdem PO-Beschluss als ENT empfohlen, weil Persistenz-Pfad architektur-relevant.
+**Aber:** [SCHEMA.md §2 "raw/ ist heilig"](../doc/de/SCHEMA.md) gilt nicht für `out/` — `out/` ist Build-Artefakt-Ordner (gitignored). Trotzdem PO-Beschluss als ENT empfohlen, weil Persistenz-Pfad architektur-relevant.
 
 **[01 §C6 — ENT-NÖTIG Sensitivity-Tier für Bilder]**
 [ENT-006](../doc/ENTSCHEIDUNGEN.md#ent-006-sensitivity-tier-modell-provider-routing): `private` → Ollama lokal. **Bilder gehen in [image_extractor.py](../agents/extractors/image_extractor.py) heute pauschal an Claude Vision (Cloud).** Wenn ein Bild-Drop mit PII-Inhalt (Selfie, Whiteboard mit Namen) ohne Tier-Markierung an die Vision-API geschickt wird, bricht das Privacy-Versprechen. **Erst-Empfehlung:** Bilder erben Default-Tier `sensitive`; Hint-Gate analog zu ENT-047 (`#privat`/`privatbild` → kein Cloud-Call, nur in `raw/assets/` archivieren). PO-Beschluss in 05.
 
 **[02 §B5 — ENT-NÖTIG IPA-Schema-Erweiterung]**
-[SCHEMA.md §3.2 VocabEntry](../doc/SCHEMA.md#32-vocabentry) listet keine `ipa`-Spalte. UX bevorzugt Frontmatter-Feld `ipa: "[ˈdwen.de]"`. **Architekt-Verdict:** ja, Frontmatter ist robuster als Body-Sektion (kein Markdown-Heading-Parsing, kein Konflikt mit `## Aussprache`-Bereichen). **Empfehlung an PO:** `[ENT-NEU?]` für SCHEMA.md §3.2-Erweiterung (`ipa: <string|null>`, optional, sprachspezifisch). Migration: Language-Agent füllt `ipa` bei Neu-Erstellung; Bestand bleibt leer (keine Backfill-Pflicht — Renderer skipt leer).
+[SCHEMA.md §3.2 VocabEntry](../doc/de/SCHEMA.md#32-vocabentry) listet keine `ipa`-Spalte. UX bevorzugt Frontmatter-Feld `ipa: "[ˈdwen.de]"`. **Architekt-Verdict:** ja, Frontmatter ist robuster als Body-Sektion (kein Markdown-Heading-Parsing, kein Konflikt mit `## Aussprache`-Bereichen). **Empfehlung an PO:** `[ENT-NEU?]` für SCHEMA.md §3.2-Erweiterung (`ipa: <string|null>`, optional, sprachspezifisch). Migration: Language-Agent füllt `ipa` bei Neu-Erstellung; Bestand bleibt leer (keine Backfill-Pflicht — Renderer skipt leer).
 
 **[02 §B5 — ARCH-FRAGE Render-Modul-Standort]**
 UX schlägt `scripts/render_card.py` vor. **Architekt-Verdict:** `scripts/` passt für **CLI-Entry** (heute `export_anki.py`), nicht für **Rendering-Bibliothek**. Sobald Discord/E-Mail-Konsumenten dazukommen ([ENT-049](../doc/ENTSCHEIDUNGEN.md#ent-049-zweit-oberflächen-strategie-telegram-bleibt-primär-cli-discord-e-mail-vorgemerkt-für-mvp-3)), wird `scripts/render_card.py` von Bot-Code (in `bot.py` oder `agents/`) importiert — `scripts/`-Imports aus dem Bot sind ein Code-Smell.
@@ -92,7 +92,7 @@ Risiko: zwei Prozesse mit demselben Bot-Token können sich mit Long-Polling und 
   conn.commit()
   ```
 - **Aufwand:** 4h (Schema + Walker + Smoke-Test gegen [graph_reader._search_sqlite](../agents/graph_reader.py#L207-L256)).
-- **Risiken/Schulden:** **Inkonsistenz-Befund** `WIKI_PAGE_THRESHOLD = 30` in Code vs. `150` in [ARCHITECTURE.md §6.3](../doc/ARCHITECTURE.md#63-graph-reader--index-abstraktion) — vor C2 in PO-Synthese klären, welcher Wert gilt. Heute 21 Pages, in beiden Welten unter Schwelle — kein Sofort-Schmerz, aber Verträge müssen einig sein.
+- **Risiken/Schulden:** **Inkonsistenz-Befund** `WIKI_PAGE_THRESHOLD = 30` in Code vs. `150` in [ARCHITECTURE.md §6.3](../doc/de/ARCHITECTURE.md#63-graph-reader--index-abstraktion) — vor C2 in PO-Synthese klären, welcher Wert gilt. Heute 21 Pages, in beiden Welten unter Schwelle — kein Sofort-Schmerz, aber Verträge müssen einig sein.
 - **Reihenfolge:** **6** (nach Render-Stabilisierung; pre-emptiv ziehen, weil Phase-2-Stub heute ungetestet ist).
 
 ### B3: C3 — Lint-Auto-Fixes (3 Detektoren)
@@ -266,7 +266,7 @@ Konkrete Sektion-Änderungen, die der PO später committen oder verwerfen kann:
 ### C2: Neue Komponenten-Specs (Kandidaten)
 
 - **`doc/COMP_RENDER.md`** — *empfohlen:* Render-Layer-Spec. Inhalt: Slot-Profile (A/B/C/D-Heuristik aus UX §B1), `RenderDict`-Vertrag, Profile-Auswahl-Logik, Multi-Konsumenten-Plan (Anki, Discord-MVP-3, E-Mail-MVP-3), Test-Strategie (Snapshot-Tests). **Begründung:** Render-Layer wird Multi-Konsumenten — eine Spec hält Verträge stabil.
-- **`doc/COMP_LINT.md`** — *empfohlen:* Lint-Auto-Fixes-Spec. Heute nur als [SCHEMA.md §8](../doc/SCHEMA.md#8-selbstheilungs-definition-was-ist-ein-kranker-graph)-Tabelle und [ENT-017](../doc/ENTSCHEIDUNGEN.md). Inhalt: Detektor-Liste (3 Pflicht aus Workshop §B3 + 2 perspektivisch), Trigger-Mechanik (heute nicht da), Telegram-Frage-Pattern für unklare Fixes, Idempotenz-Garantien.
+- **`doc/COMP_LINT.md`** — *empfohlen:* Lint-Auto-Fixes-Spec. Heute nur als [SCHEMA.md §8](../doc/de/SCHEMA.md#8-selbstheilungs-definition-was-ist-ein-kranker-graph)-Tabelle und [ENT-017](../doc/ENTSCHEIDUNGEN.md). Inhalt: Detektor-Liste (3 Pflicht aus Workshop §B3 + 2 perspektivisch), Trigger-Mechanik (heute nicht da), Telegram-Frage-Pattern für unklare Fixes, Idempotenz-Garantien.
 - **`doc/COMP_INDEX.md`** — *optional:* Index-Updater-Spec. Heute nur als LangGraph-Node-Name. Inhalt: Walker-Algorithmus, Frontmatter-`summary:`-Extraktion, Phase-1/Phase-2-Übergangs-Verhalten, Re-Build-Idempotenz. **Niedrige Priorität** — kann auch in `COMP_LINT.md` als Sub-Sektion.
 
 ### C3: Schulden-Bezug — was Workshop-Ideen treffen

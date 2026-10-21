@@ -1,204 +1,202 @@
-# SCHEMA.md — Die Verfassung des LLM-Personal-Knowledge-OS
-> Version: 0.4 | Datum: 2026-07-04 | Status: DRAFT
+# SCHEMA.md: The constitution of llm-personal-knowledge-os
+> Version: 0.4 (English edition, 2026-10) | Status: DRAFT | German original: [de/SCHEMA.md](de/SCHEMA.md)
+>
+> Decision references (`ENT-xxx`) point to the German decision log [ENTSCHEIDUNGEN.md](ENTSCHEIDUNGEN.md).
 
 ---
 
-## 1. Systemphilosophie
+## 1. System philosophy
 
-Dieses System ist **kein Notiz-Tool**. Es ist ein persistentes, kompiliertes Gedächtnis des Nutzers — gepflegt von LLMs, navigierbar durch Obsidian, getriggert durch den Alltag.
+This system is **not a note-taking tool**. It is a persistent, compiled memory of the user: maintained by LLMs, navigable through Obsidian, triggered by everyday life.
 
-Drei Axiome:
-1. **Rohdaten sind heilig.** Sie werden niemals verändert — nur gelesen und verarbeitet.
-2. **Der Graph gehört der KI — außerhalb deklarierter human-owned Zonen.** Menschen schreiben keine Wiki-Seiten manuell; die KI schreibt, der Mensch liest und korrigiert. Ausnahme sind die in §2 deklarierten **human-owned Zonen** ([ENT-062](ENTSCHEIDUNGEN.md#ent-062-axiom-2-carve-out-human-owned-zonen-im-wiki)): dort schreibt nur der Mensch. Die KI liest sie als graph_context, flaggt Widersprüche (§8-Mechanismus, Nutzer entscheidet), schreibt und auto-fixt dort **nie** — durchgesetzt über einen deterministischen Guard in `graph_writer` (§2). Ownership-Wechsel ist ein bewusster Akt des Nutzers (Flag entfernen / Seite verschieben), kein Schleichweg.
-3. **Jede Interaktion ist potentielle Erkenntnis.** Der Supervisor bewertet jeden Input auf Graphrelevanz.
+Three axioms:
+1. **Raw data is sacred.** It is never modified, only read and processed.
+2. **The graph belongs to the AI, outside declared human-owned zones.** Humans don't write wiki pages by hand; the AI writes, the human reads and corrects. The exception is the **human-owned zones** declared in §2 (ENT-062): there, only the human writes. The AI reads them as graph_context and flags contradictions (the §8 mechanism, the user decides), but **never** writes or auto-fixes there. This is enforced by a deterministic guard in `graph_writer` (§2). Changing ownership is a deliberate act by the user (remove the flag or move the page), never a side effect.
+3. **Every interaction is a potential insight.** The supervisor rates every input for its relevance to the graph.
 
 ---
 
-## 2. Verzeichnisstruktur
+## 2. Directory layout
+
+All paths are relative to the **vault root** (`KOS_VAULT_ROOT`, default `sample_vault/`). Code lives in the repository; data lives in the vault.
 
 ```
-knowledge-os/
+<vault>/
 │
-├── raw/                        # [IMMUTABLE] Rohdaten — KI liest, nie schreibt
-│   ├── events/                 # Telegram-Inputs, Trigger-Nachrichten (JSON + MD)
-│   ├── sources/                # Artikel, PDFs, Web-Clips (Obsidian Web Clipper)
-│   ├── assets/                 # Bilder, Audio (lokal gespeichert)
-│   └── style_refs/             # Stil-Referenz-Medien (IMMUTABLE)
-│       └── [name]/             # je Referenz: chappelle/, ted-talk/, ...
+├── raw/                        # [IMMUTABLE] raw data: the AI reads, never writes
+│   ├── events/                 # Telegram inputs, trigger messages (JSON + MD)
+│   ├── sources/                # articles, PDFs, web clips (Obsidian Web Clipper)
+│   ├── assets/                 # images, audio (stored locally)
+│   └── style_refs/             # style reference media (IMMUTABLE)
+│       └── [name]/             # one folder per reference: comedian/, ted-talk/, ...
 │
-├── wiki/                       # [LLM-OWNED] Kompiliertes Wissen (Ausnahme: human-owned Zonen, s.u.)
-│   ├── personal/               # Personal Facts, Diary-Einträge
-│   │   ├── facts/              # Einzelne PersonalFact-Seiten
-│   │   ├── stories/            # Ausgearbeitete Geschichten/Pointen
-│   │   ├── style_refs/         # StyleProfile-Seiten (sp_[name].md)
-│   │   └── health/             # [HUMAN-OWNED] Gesundheits-Protokoll — Mensch schreibt, KI liest (ENT-062)
-│   ├── language/               # Mehrsprachiges Vokabular, Grammatik, Kultur
-│   │   ├── vocab/              # Einzelne VocabEntry-Seiten (alle Sprachen)
-│   │   ├── grammar/            # Grammatik-Konzepte (je Sprache)
-│   │   ├── culture/            # Personen, Orte, Kulturstichworte (je Land/Region)
-│   │   └── bridges/            # Cross-Language-Korrelationen & Kognaten
-│   ├── concepts/               # Allgemeine Konzepte, Themen, Querverweise
-│   └── topics/                 # TopicPages — aggregiertes Fremdwissen (tp_*, §3.9)
+├── wiki/                       # [LLM-OWNED] compiled knowledge (except human-owned zones, see below)
+│   ├── personal/               # personal facts, diary entries
+│   │   ├── facts/              # individual PersonalFact pages
+│   │   ├── stories/            # elaborated stories / punchlines
+│   │   ├── style_refs/         # StyleProfile pages (sp_[name].md)
+│   │   └── health/             # [HUMAN-OWNED] health notes: human writes, AI reads (ENT-062)
+│   ├── language/               # multilingual vocabulary, grammar, culture
+│   │   ├── vocab/              # individual VocabEntry pages (all languages)
+│   │   ├── grammar/            # grammar concepts (per language)
+│   │   ├── culture/            # people, places, cultural keywords (per country/region)
+│   │   └── bridges/            # cross-language correlations and cognates
+│   ├── concepts/               # general concepts, themes, cross-links
+│   └── topics/                 # TopicPages: aggregated external knowledge (tp_*, §3.9)
 │
-├── templates/                  # Markdown-Templates für jeden Entitätstyp
-├── agents/                     # Python-Agenten-Code
-├── workflows/                  # Workflow-Definitionen (LangGraph)
-│
-├── SCHEMA.md                   # Diese Datei — Systemverfassung
-├── index.md                    # [LLM-MAINTAINED] Inhaltsverzeichnis aller Wiki-Seiten
-└── log.md                      # [LLM-MAINTAINED] Append-only Operationslog
+├── index.md                    # [LLM-MAINTAINED] table of contents of all wiki pages
+├── log.md                      # [LLM-MAINTAINED] append-only operation log
+└── user_profile.md             # [LLM-MAINTAINED] compressed user signature (§3.8)
 ```
 
-**Source-Mounts der Ingestion ([ENT-058](ENTSCHEIDUNGEN.md#ent-058-input-kanal-rawwikiclippings-als-registrierter-source-mount-option-k2)):** Die Ingestion liest die konfigurierte Liste `SOURCE_DIRS = ["raw/sources/", "raw/Wiki/Clippings/"]` (definiert in `scripts/ingest/`) — `raw/Wiki/Clippings/` (Obsidian-Web-Clipper-Bestand) ist damit registrierter Source-Mount: Konfigurations-Liste, kein Datei-Umzug, keine Clipper-Rekonfiguration. Der Rest von `raw/Wiki/` (Vault-Artefakte) bleibt außen vor.
+**Ingestion source mounts (ENT-058):** ingestion reads the configured list `SOURCE_DIRS = ("raw/sources/", "raw/Wiki/Clippings/")` (defined in `scripts/ingest/`). `raw/Wiki/Clippings/` (an Obsidian Web Clipper folder) is a registered source mount: a configuration entry, not a file move, and no clipper reconfiguration is needed. The rest of `raw/Wiki/` (vault artifacts) is ignored.
 
-### Human-owned Zonen (Axiom-2-Carve-out, ENT-062)
+### Human-owned zones (axiom 2 carve-out, ENT-062)
 
-Deklarierte Verzeichnisse, in denen **nur der Mensch** schreibt. Axiom 2 gilt außerhalb dieser Zonen uneingeschränkt.
+Declared directories in which **only the human** writes. Axiom 2 applies without restriction outside these zones.
 
-| Zone | Inhalt | Seit |
+| Zone | Contents | Since |
 |---|---|---|
-| `wiki/personal/health/` | Human-owned Gesundheitsnotizen (Typen-Familie §3.10) | 2026-07-04 (ENT-062) |
+| `wiki/personal/health/` | Human-owned health notes (type family §3.10) | 2026-07-04 (ENT-062) |
 
-**Doppel-Kennzeichnung:** (1) Deklaration in dieser Tabelle — Enforcement über den deterministischen Guard in `graph_writer` (`assert_writable()`, harte Exception vor jedem Write; dieselbe geteilte Funktion muss vor jedem künftigen Datei-Write-Pfad aufgerufen werden, auch Lint-Auto-Fixes). (2) `owner: human`-Frontmatter pro Seite — Portabilität, Obsidian-sichtbar, Lint-filterbar. Konsistenz der Doppel-Kennzeichnung („Zone ⊄ owner-Flags") prüft ein Lint-Detektor. Die KI liest die Zone als graph_context und flaggt Widersprüche (§8), schreibt und auto-fixt dort nie.
+**Double marking:** (1) The declaration in this table, enforced by the deterministic guard in `graph_writer` (`assert_writable()`, a hard exception before every write; the same shared function must be called before every future file-write path, including lint auto-fixes). (2) `owner: human` frontmatter on each page, which keeps the marking portable, visible in Obsidian and filterable by lint. A lint detector (`find_zone_owner_violations()`) checks that both markings agree. The AI reads the zone as graph_context and flags contradictions (§8), but never writes or auto-fixes there.
 
 ---
 
-## 3. Entitäts-Ontologie
+## 3. Entity ontology
 
-Die folgenden Typen sind die Grundbausteine des Graphen. Jede Wiki-Seite gehört zu genau einem Typ.
+The following types are the building blocks of the graph. Every wiki page belongs to exactly one type.
 
 ### 3.1 `PersonalFact`
-> Ein erzählungswürdiges Ereignis, eine Beobachtung oder Eigenschaft des Nutzers.
+> A story-worthy event, observation or trait of the user.
 
-**Felder:**
-- `title`: Kurzer, einprägsamer Titel
-- `date`: Datum des Ereignisses (nicht der Erfassung)
-- `context`: Wo/Wann/Mit wem
-- `core_fact`: Die rohe Tatsache in 1-2 Sätzen
-- `narrative_hook`: Die potentielle Pointe / das Interessante daran
-- `related_facts`: Links zu anderen PersonalFacts
-- `story_score`: 0–10, wie erzählungswürdig (LLM-bewertet)
+**Fields:**
+- `title`: short, memorable title
+- `date`: date of the event (not of capture)
+- `context`: where / when / with whom
+- `core_fact`: the raw fact in 1–2 sentences
+- `narrative_hook`: the potential punchline, what makes it interesting
+- `related_facts`: links to other PersonalFacts
+- `story_score`: 0–10, how story-worthy (LLM-rated)
 - `status`: `raw` | `elaborated` | `story-ready`
 
 ### 3.2 `VocabEntry`
-> Ein Wort oder Ausdruck in einer beliebigen Zielsprache — mit vollständigem Lernkontext und sprachlichen Brücken zu anderen bekannten Sprachen.
+> A word or expression in any target language, with full learning context and linguistic bridges to other languages the user knows.
 
-**Felder:**
-- `word`: Das Zielwort
-- `language`: ISO 639-1 Code (`es`, `en`, `de`, `fr`, ...) — **aus dem Graphen abgeleitet**
-- `translations`: Map von Sprache → Übersetzung  
+**Fields:**
+- `word`: the target word
+- `language`: ISO 639-1 code (`es`, `en`, `de`, `fr`, ...), **derived from the graph**
+- `translations`: map of language → translation
   ```yaml
   translations:
-    de: "Mitternacht"
-    en: "early morning hours"
+    de: "knusprige, leicht angebrannte Reisschicht am Pfannenboden"
+    en: "crispy toasted rice layer at the bottom of the pan"
   ```
-- `conjugation`: Verb-Konjugation (falls Verb, sprachspezifisch)
-- `example_sentences`: 3 Beispielsätze in der Zielsprache
-- `mnemonic`: Eselsbrücke (LLM-generiert, nutzt bekannte Sprachen des Nutzers)
-- `cross_language_bridges`: Kognaten, Faux-amis oder semantische Parallelen zu anderen Sprachen
+- `conjugation`: verb conjugation (for verbs, language-specific)
+- `example_sentences`: three example sentences in the target language
+- `mnemonic`: memory aid (LLM-generated, using the user's known languages)
+- `cross_language_bridges`: cognates, false friends or semantic parallels in other languages
   ```yaml
   cross_language_bridges:
     - lang: en
-      word: "madrugada"
-      note: "No direct English cognate — concept gap worth knowing"
-    - lang: de
-      word: "Morgendämmerung"
-      note: "Similar feeling, different time window"
+      type: concept-gap
+      note: "No single English word; borrowed from Valencian (socarrar = to toast lightly)."
   ```
-- `anki_id`: ID der korrespondierenden Anki-Karte (nach Export)
-- `difficulty`: `A1` bis `C2` (CEFR, sprachspezifisch)
-- `related_words`: Links zu verwandten VocabEntries (auch sprachübergreifend)
+- `ipa`: optional pronunciation, e.g. `"[so.kaˈrat]"` (ENT-055)
+- `anki_id`: ID of the matching Anki note (after export)
+- `difficulty`: `A1` to `C2` (CEFR, language-specific)
+- `related_words`: links to related VocabEntries (also across languages)
 
-**Sprach-Erkennung aus dem Graph:**
-Der Language-Agent analysiert periodisch die Sprach-Verteilung in `raw/events/` und `raw/sources/` und aktualisiert ein `user_language_profile.md` — dieses steuert welche Sprachen in `translations` und `cross_language_bridges` priorisiert werden.
+**Language detection from the graph:**
+The language agent periodically analyzes the language distribution in `raw/events/` and `raw/sources/` and updates `wiki/language/user_language_profile.md`. That file controls which languages are prioritized in `translations` and `cross_language_bridges`.
 
 ### 3.3 `CulturalEntry`
-> Eine Person, ein Ort, ein Ereignis oder ein Kulturstichwort — **nicht auf eine Sprache/Region beschränkt**, aber immer mit geografischem und sprachlichem Kontext.
+> A person, place, event or cultural keyword. **Not limited to one language or region**, but always with geographic and linguistic context.
 
-**Felder:**
-- `name`: Name der Entität
+**Fields:**
+- `name`: name of the entity
 - `type`: `person` | `place` | `event` | `cultural-concept`
-- `country`: ISO 3166-1 alpha-2 Code (`ES`, `MX`, `US`, `GB`, `DE`, ...)
-- `language_context`: Primäre Sprache(n) der Entität (ISO 639-1 Liste)
-- `summary`: 3-5 Satz-Zusammenfassung
-- `why_relevant`: Warum relevant für diesen Nutzer? (LLM-personalisiert aus Graph-Kontext)
-- `cross_cultural_links`: Verbindungen zu Entitäten anderer Kulturen/Länder
+- `country`: ISO 3166-1 alpha-2 code (`ES`, `MX`, `US`, `GB`, `DE`, ...)
+- `language_context`: primary language(s) of the entity (ISO 639-1 list)
+- `summary`: 3–5 sentence summary
+- `why_relevant`: why it matters to this user (LLM-personalized from the graph context)
+- `cross_cultural_links`: connections to entities of other cultures or countries
   ```yaml
   cross_cultural_links:
-    - entry: "[[c_gabriel-garcia-marquez]]"
-      note: "Beide prägen magischen Realismus — Brücke ES ↔ CO"
+    - entry: "[[c_es_paella-valenciana]]"
+      note: "Rice dish family: paella ↔ risotto, bridge ES ↔ IT"
   ```
-- `sources`: Links zu Quellen in `raw/sources/`
-- `related_entries`: Links zu anderen CulturalEntries
+- `sources`: links to sources in `raw/sources/`
+- `related_entries`: links to other CulturalEntries
 
 ### 3.3.1 `LanguageBridge`
-> Spezieller Entitätstyp für explizite Verbindungen zwischen Sprachen — z.B. Kognaten, Faux-amis, strukturelle Parallelen, kulturelle Konzepte ohne Äquivalent.
+> A dedicated type for explicit connections between languages: cognates, false friends, structural parallels, cultural concepts without an equivalent.
 
-Lebt in `wiki/language/bridges/`. Wird vom Language-Agent automatisch erzeugt wenn Korrelationen entdeckt werden.
+Lives in `wiki/language/bridges/`. Created automatically by the language agent when it discovers correlations.
 
-**Felder:**
+**Fields:**
 - `type`: `cognate` | `faux-ami` | `concept-gap` | `structural-parallel`
-- `languages`: Liste der involvierten Sprachen
-- `entries`: Links zu den beteiligten VocabEntries
-- `insight`: Die lernrelevante Erkenntnis in 1-2 Sätzen
+- `languages`: list of the languages involved
+- `entries`: links to the VocabEntries involved
+- `insight`: the learning-relevant insight in 1–2 sentences
 
 ### 3.4 `Concept`
-> Ein abstraktes Thema oder Wissensgebiet (domänenübergreifend).
+> An abstract theme or field of knowledge (cross-domain).
 
-**Felder:**
-- `title`: Konzeptname
-- `summary`: Verdichtete Erklärung
-- `connections`: Links zu allen Entitäten, die dieses Konzept berühren
-- `open_questions`: Offene Fragen — Einladung zur weiteren Erkundung
+**Fields:**
+- `title`: concept name
+- `summary`: condensed explanation
+- `connections`: links to all entities that touch this concept
+- `open_questions`: open questions, an invitation to explore further
 
 ### 3.5 `RawEvent`
-> Ein unverarbeiteter Input (Telegram-Nachricht, manueller Trigger). Lebt in `raw/events/`.
+> An unprocessed input (Telegram message, manual trigger). Lives in `raw/events/`.
 
-**Felder:**
+**Fields:**
 - `timestamp`: ISO 8601
 - `source`: `telegram` | `manual` | `scheduled`
-- `content`: Rohtext oder strukturiertes JSON
+- `content`: raw text or structured JSON
 - `processed`: `true` | `false`
-- `wiki_refs`: Links zu erzeugten/aktualisierten Wiki-Seiten
+- `wiki_refs`: links to the wiki pages created or updated from it
 
 ### 3.6 `StyleProfile`
-> Aggregiertes Stil-Profil einer Redner-/Comedian-Referenz. Entsteht durch Aggregation mehrerer `StyleFingerprints` aus `raw/style_refs/[name]/`. Lebt in `wiki/personal/style_refs/sp_[name].md`.
+> An aggregated style profile of a speaker or comedian reference, built by aggregating several `StyleFingerprints` from `raw/style_refs/[name]/`. Lives in `wiki/personal/style_refs/sp_[name].md`.
 
-**Felder:**
-- `name`: Bezeichner der Referenz (z.B. `"chappelle"`, `"ted-talk"`)
-- `sample_count`: Anzahl beitragender Clips/Transcripts
-- `confidence`: 0.0–1.0 (Schwellwerte: 1→0.25, 3→0.60, 5→0.85, 8→1.00)
-- `avg_words_per_second`: Sprechtempo-Mittelwert (nur wenn Audio-Samples vorhanden)
-- `avg_pause_before_punchline`: Ø Pause vor der Pointe in Sekunden (nur Audio)
-- `setup_ratio`: Mittelwert Aufbau vs. Pointe über alle Samples (0.0–1.0)
-- `key_patterns`: Kern-Muster die in ≥50% der Clips vorkommen
-- `style_tags`: Labels mit Häufigkeit ≥50% der Clips
-- `sources`: Pfade zu allen beitragenden Dateien in `raw/style_refs/[name]/`
+**Fields:**
+- `name`: identifier of the reference (e.g. `"ted-talk"`)
+- `sample_count`: number of contributing clips or transcripts
+- `confidence`: 0.0–1.0 (thresholds: 1→0.25, 3→0.60, 5→0.85, 8→1.00)
+- `avg_words_per_second`: mean speaking rate (only with audio samples)
+- `avg_pause_before_punchline`: mean pause before the punchline in seconds (audio only)
+- `setup_ratio`: mean setup vs. punchline share across all samples (0.0–1.0)
+- `key_patterns`: core patterns that occur in ≥ 50 % of the clips
+- `style_tags`: labels with a frequency of ≥ 50 % of the clips
+- `sources`: paths to all contributing files in `raw/style_refs/[name]/`
 
-**Ab wann nutzbar für Feedback:** ab `confidence >= 0.60` (≥3 Samples).
+**Usable for feedback from** `confidence >= 0.60` (≥ 3 samples).
 
-**Verknüpfung:** StyleProfiles verlinken nicht auf andere Wiki-Entitäten, aber PersonalFact-`practice_log`-Einträge referenzieren das jeweils aktive StyleProfile via `style_profile_ref`.
+**Linking:** StyleProfiles don't link to other wiki entities, but PersonalFact `practice_log` entries reference the active StyleProfile via `style_profile_ref`.
 
 ### 3.7 `ServiceDefinition`
-> Eine domänenspezifische Übungsroutine, die aus dem Graph-Inhalt generiert wird und das StyleProfile in Dimensionen anreichert, die Diary und Language allein nicht abdecken (z.B. Krypto-Erklärung, Spanisch-Improv). Lebt in `wiki/services/sd_[slug].md`. Detaillierte Spezifikation, Workflow und ServiceInstance-Verarbeitung siehe `COMP_SERVICES.md` (Status: Phase 3, nach MVP-1).
+> A domain-specific practice routine generated from the graph content that enriches the StyleProfile along dimensions that diary and language alone don't cover (e.g. explaining a technical topic, Spanish improv). Lives in `wiki/services/sd_[slug].md`. Detailed specification, workflow and ServiceInstance handling: `COMP_SERVICES.md` (German; status: phase 3, planned).
 
-**Pflicht-Frontmatter (Mindest-Felder):**
+**Required frontmatter (minimum fields):**
 - `type: ServiceDefinition`
-- `slug`: kebab-case Bezeichner (eindeutig)
-- `domain`: thematische Einordnung (`finance`, `language`, `presentation`, ...)
-- `style_context_key`: Schlüssel im aktiven `StyleProfile.context_profiles` für die Aggregation
+- `slug`: kebab-case identifier (unique)
+- `domain`: topical category (`finance`, `language`, `presentation`, ...)
+- `style_context_key`: key in the active `StyleProfile.context_profiles` used for aggregation
 - `analysis_type`: `style_fingerprint` | `story_lab` | `vocab` | `language_quality`
-- `created`, `updated`, `status`, `tags`, `sources`, `related` (siehe §5)
+- `created`, `updated`, `status`, `tags`, `sources`, `related` (see §5)
 
-**Verknüpfung:** `practice_log`-Einträge aus Service-Ausführungen referenzieren via `service_slug` und `style_context_key`. Vollständiges Schema (inkl. `cost_estimate`, `conversation_config`, `ServiceInstance`) siehe COMP_SERVICES.md §2.
+**Linking:** `practice_log` entries from service runs reference `service_slug` and `style_context_key`. The full schema (including `cost_estimate`, `conversation_config`, `ServiceInstance`) is in COMP_SERVICES.md §2.
 
-### 3.8 System-Dateien (`user_profile.md`, `index.md`, `log.md`)
+### 3.8 System files (`user_profile.md`, `index.md`, `log.md`)
 
-Diese drei Dateien sind **keine Wiki-Entitäten** — sie haben keinen `type:`-Eintrag im Frontmatter und leben direkt im Repo-Root neben `SCHEMA.md`. Sie werden ausschließlich von Agenten geschrieben.
+These three files are **not wiki entities**: they have no `type:` in their frontmatter and live directly in the vault root. Only agents and scripts write them.
 
-#### `user_profile.md` — Komprimierte Nutzersignatur
+#### `user_profile.md`: compressed user signature
 
-Immer im Supervisor-Kontext geladen (~80–120 Zeilen). Template:
+Always loaded into the supervisor's context (~80–120 lines). Template:
 
 ```markdown
 ---
@@ -206,22 +204,22 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 
-# Nutzer-Profil
+# User profile
 
-## Sprachprofil
-- Primärsprache: de
-- Aktive Zielsprachen: [es, en]
-- Input-Verteilung (30 Tage): de: 60%, es: 30%, en: 10%
-- Input-Verteilung (90 Tage): de: 65%, es: 25%, en: 10%
+## Language profile
+- Primary language: de
+- Active target languages: [es, en]
+- Input distribution (30 days): de: 60%, es: 30%, en: 10%
+- Input distribution (90 days): de: 65%, es: 25%, en: 10%
 
-## Interessen-Cluster
-- [Cluster-Name] (hoch | mittel | niedrig) — [Basis: N Seiten]
+## Interest clusters
+- [cluster name] (high | medium | low) — [basis: N pages]
 
-## Personal-Facts-Profil
-- Gesamt: N PersonalFacts
-- story_score Durchschnitt: X.X
-- High-Score Facts (≥7) ungeübt: N
-- Zuletzt elaboriert: YYYY-MM-DD
+## PersonalFacts profile
+- Total: N PersonalFacts
+- Average story_score: X.X
+- High-score facts (≥ 7) not practiced: N
+- Last elaborated: YYYY-MM-DD
 
 ## Bootstrap
 bootstrap_progress: N/10
@@ -231,125 +229,127 @@ bootstrap_started: YYYY-MM-DD
 ## Style
 active_style_profile: "[name]" | null
 
-## Schwellwerte (System-Defaults, überschreibbar)
+## Thresholds (system defaults, can be overridden)
 concept_threshold: 3
 story_score_elaborate_threshold: 6
 story_score_review_required: 7
 stale_raw_days: 7
 ```
 
-#### `index.md` — Inhaltsverzeichnis aller Wiki-Seiten
+#### `index.md`: table of contents of all wiki pages
 
-Append-only pro Entitätstyp. Format wie in ARCHITECTURE.md §2.2 beschrieben.
+One section per entity type, regenerated deterministically by `scripts/rebuild_index.py`. Format as described in ARCHITECTURE.md §2.2.
 
-#### `log.md` — Chronologisches Operationslog
+#### `log.md`: chronological operation log
 
-Append-only. Format: `## [YYYY-MM-DDTHH:MM] operation | Kurzbeschreibung`
+Append-only. Format: `## [YYYY-MM-DDTHH:MM] operation | short description`
 
 ### 3.9 `TopicPage`
-> Aggregiertes **Fremdwissen** zu einem Thema — destilliert aus externen Quellen (`raw/`-Clips), quellen-attribuiert, mit Konsens/Dissens als First-Class-Inhalt. Entsteht **per Ingestion, nie emergent** (Abgrenzung zu `Concept`, ENT-010 unberührt). Lebt in `wiki/topics/`. Beschluss: [ENT-057](ENTSCHEIDUNGEN.md#ent-057-neuer-entitätstyp-topicpage-für-fremdwissen-schema-39).
+> Aggregated **external knowledge** on a topic, distilled from external sources (`raw/` clips), with source attribution and consensus/dissent as first-class content. Created **by ingestion only, never emergently** (distinct from `Concept`, ENT-010 unaffected). Lives in `wiki/topics/`. Decision: ENT-057.
 
 **Frontmatter:**
 
 ```yaml
 ---
 type: TopicPage
-topic: sauna            # kebab-slug, == Dateiname ohne Prefix (tp_[domain]_<topic>.md)
+topic: karpathy-llm-wiki   # kebab slug, == file name without prefix (tp_[domain]_<topic>.md)
 domain: health | tech | language | music | esport | photo | career | other
-mode: claims | digest           # claims: Konsens/Dissens/Einzelbefunde (empirisches Wissen)
-                                # digest: Kernaussagen/Primär-vs-Rezeption/Einordnung (Design-/Definitions-Wissen)
+mode: claims | digest      # claims: consensus / dissent / single findings (empirical knowledge)
+                           # digest: key statements / primary vs. reception / assessment (design or definitional knowledge)
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
-status: raw | merged | reviewed # raw = Erst-Extraktion (1 Quelle), merged = ≥2 Quellen konsolidiert,
-                                # reviewed = Nutzer hat freigegeben
+status: raw | merged | reviewed  # raw = first extraction (1 source), merged = ≥ 2 sources consolidated,
+                                 # reviewed = approved by the user
 tags: []
-sensitivity: sensitive          # Pflicht-Default bei domain: health (ENT-061); sonst optional (Default public)
-sources:                        # Pflicht, ≥1; strukturiert — Dedup- und Attributions-Anker
-  - key: A                      # Kürzel für Body-Attribution ([A] 3:38)
-    id: "yt:exampleVid1"        # kanonische ID: "yt:<video_id>" | "url:<normalisierte-url>" | "sha1:<hash>" (Fallback)
+sensitivity: sensitive     # mandatory default for domain: health (ENT-061); otherwise optional (default public)
+sources:                   # required, ≥ 1; structured: anchor for dedup and attribution
+  - key: A                 # short key for attribution in the body ([A] 3:38)
+    id: "yt:exampleVid1"   # canonical ID: "yt:<video_id>" | "url:<normalized-url>" | "sha1:<hash>" (fallback)
     path: "raw/Wiki/Clippings/Example Source A.md"
-    author: "Dr. Jane Doe"     # Klartext, KEIN [[Wikilink]] (raw/ ist kein Wiki)
-    tier: 3                     # 1–5, Skala unten; Default bei Extraktions-Unsicherheit: 5
-    published: 2024-03-01       # optional (fehlt oft)
-related: []                     # inkl. Links auf human-owned Seiten (§3.10) — lesen ja, schreiben nie
+    author: "Dr. Jane Doe" # plain text, NO [[wikilink]] (raw/ is not part of the wiki)
+    tier: 3                # 1–5, scale below; default when extraction is uncertain: 5
+    published: 2024-03-01  # optional (often missing)
+related: []                # may include links to human-owned pages (§3.10): read yes, write never
 ---
 ```
 
-**Bewusst NICHT im Frontmatter:** ein globales `confidence`-Feld (eine Seite hat hohe *und* niedrige Claims — Konfidenz steht pro Claim im Body); `independent_source_count` als persistiertes Feld (ableitbar aus `sources[].author`-Distinktheit — Redundanz wäre Drift-Quelle); die Claims selbst als YAML (die Seite ist zum Lesen da, Maschinenlesbarkeit liefert die Body-Grammatik).
+**Deliberately NOT in the frontmatter:** a global `confidence` field (a page has high *and* low confidence claims, so confidence is stated per claim in the body); `independent_source_count` as a persisted field (derivable from the distinct `sources[].author` values, and redundancy would be a source of drift); the claims themselves as YAML (the page is meant to be read; machine readability comes from the body grammar).
 
-**Body-Grammatik `mode: claims`** (menschenlesbar + regex-parsebar, strikte Zeilen-Grammatik):
+**Body grammar for `mode: claims`** (human-readable and regex-parsable, strict line grammar):
 
 ```markdown
-# <Thema>
+# <Topic>
 
 ## Konsens
-- **Claim:** <atomare, dekontextualisierte Behauptung> | **Quellen:** [A 3:38], [C 6:05] | **Konfidenz:** hoch
+- **Claim:** <atomic, decontextualized statement> | **Quellen:** [A 3:38], [C 6:05] | **Konfidenz:** hoch
 ## Dissens
-- **<Streitfrage>.**
-  - **[A] sagt:** … (Beleg-Stelle)
-  - **[B] sagt:** … (Beleg-Stelle)
-  - **Einordnung:** … (inkl. Verweis auf Nutzer-Position, falls eine human-owned Seite eine hat)
+- **<Question in dispute>.**
+  - **[A] sagt:** … (evidence location)
+  - **[B] sagt:** … (evidence location)
+  - **Einordnung:** … (including a reference to the user's position, if a human-owned page states one)
 ## Einzelbefunde
-- <Behauptung> | [B 9:06]
+- <statement> | [B 9:06]
 ## why_relevant
-> 2–3 Sätze, Verlinkung auf Nutzer-Ziele ([[…]]-Links auf human-owned Seiten erlaubt — lesen ja, schreiben nie).
+> 2–3 sentences linking to the user's goals ([[…]] links to human-owned pages are allowed: read yes, write never).
 ```
 
-**Body-Grammatik `mode: digest`:** `## Kernaussagen` (mit Quellen-Kürzel, ohne Konfidenz-Zwang) / `## Primärquelle vs. Rezeption` / `## Einordnung` / `## why_relevant`. Taxonomien/Listen sind hier legitimer Inhalt.
+> The section headings and field labels (`Konsens` = consensus, `Dissens` = dissent, `Einzelbefunde` = single findings, `Quellen` = sources, `Konfidenz` = confidence with values `hoch`/`mittel`/`niedrig` = high/medium/low, `Einordnung` = assessment) are German literals in the current grammar. Planned extraction and lint code (BL-17/BL-18) is specified against these exact strings.
 
-**Regeln beider Modi:**
-- **Beleg-Stelle ist Pflicht pro Claim** (Timestamp `MM:SS` bei Transkripten, Abschnitts-Titel bei Artikeln). Claim ohne Beleg-Stelle = Abstain — der Extraktions-Prompt verwirft ihn, der Lint flaggt ihn, falls doch einer durchrutscht.
-- Body referenziert Quellen nur per `[<key> <Beleg-Stelle>]`. **Kein `[[wikilink]]` auf `raw/`-Dateien** und **keine URLs im Body** (stehen im Clip-Frontmatter).
-- `## Dissens` in `mode: claims`-Seiten ist **gesunder First-Class-Inhalt**, kein Widerspruchs-Symptom im Sinne von §8. Flag-pflichtig ist nur ein Widerspruch TopicPage ↔ human-owned Seite (Nutzer entscheidet).
-- **Pflicht-Disclaimer** für `mode: claims` + `domain: health` — erste Body-Zeile unter der `# <Thema>`-Überschrift (ENT-061):
+**Body grammar for `mode: digest`:** `## Kernaussagen` (key statements, with source keys, confidence optional) / `## Primärquelle vs. Rezeption` (primary source vs. reception) / `## Einordnung` (assessment) / `## why_relevant`. Taxonomies and lists are legitimate content here.
+
+**Rules for both modes:**
+- **An evidence location is required for every claim** (timestamp `MM:SS` for transcripts, section title for articles). A claim without an evidence location is an abstain: the extraction prompt discards it, and lint flags it if one slips through.
+- The body references sources only as `[<key> <evidence location>]`. **No `[[wikilink]]` to `raw/` files** and **no URLs in the body** (they are in the clip's frontmatter).
+- `## Dissens` in `mode: claims` pages is **healthy first-class content**, not a contradiction symptom in the sense of §8. Only a contradiction between a TopicPage and a human-owned page must be flagged (the user decides).
+- **Mandatory disclaimer** for `mode: claims` + `domain: health`, as the first body line under the `# <Topic>` heading (ENT-061). The current German wording means: *"Aggregated external knowledge, not medical advice. Source tier ≠ medical recommendation."*
   ```markdown
   > Aggregiertes Fremdwissen, keine medizinische Beratung. Quellen-Tier ≠ ärztliche Empfehlung.
   ```
 
-**Quellen-Tier-Skala (Verfassungstext, ENT-060):**
+**Source tier scale (normative, ENT-060):**
 
-| Tier | Bedeutung |
+| Tier | Meaning |
 |---|---|
-| 1 | Primärquelle / zitierte Studie |
-| 2 | Facharzt / Evidenz-Podcast |
-| 3 | Arzt-Influencer mit Verkaufsfunnel |
-| 4 | Anekdote n=1 |
-| 5 | Aggregator / unbekannt |
+| 1 | Primary source / cited study |
+| 2 | Specialist physician / evidence-focused podcast |
+| 3 | Physician-influencer with a sales funnel |
+| 4 | Anecdote, n = 1 |
+| 5 | Aggregator / unknown |
 
-**Default bei Extraktions-Unsicherheit: tier 5** (konservativ).
+**Default when extraction is uncertain: tier 5** (conservative).
 
-**Konfidenz-Ableitungsregel (Verfassungstext, ENT-060 — deterministisch, nie roh gezählt):**
+**Confidence derivation rule (normative, ENT-060; deterministic, never a raw count):**
 
-- **Unabhängigkeit** = Zahl distinkter Autoren, ermittelt per Fuzzy-Match (`SequenceMatcher ≥ 0,85` — „Dr. Jane Doe DC" ≈ „Dr. Doe" = ein Autor), nicht String-Gleichheit.
-- `hoch` = ≥2 unabhängige Autoren, davon ≥1 mit tier ≤2
-- `mittel` = mehrere Quellen desselben Autors ODER genau 1 Quelle mit tier ≤2
-- `niedrig` = nur tier ≥3 oder mechanistisch unbelegt
+- **Independence** = the number of distinct authors, determined by fuzzy matching (`SequenceMatcher ≥ 0.85`: "Dr. Jane Doe DC" ≈ "Dr. Doe" = one author), not string equality.
+- `hoch` (high) = ≥ 2 independent authors, at least one with tier ≤ 2
+- `mittel` (medium) = several sources by the same author OR exactly one source with tier ≤ 2
+- `niedrig` (low) = only tier ≥ 3, or mechanistically unsupported
 
-Die **Tier-Basis steht sichtbar in jeder Konfidenz-Zeile** im Body (z.B. `**Konfidenz:** mittel (3 Quellen, 1 Autor, tier 3)`). Der Scheinkonsens-Fall (3 Quellen = 1 Autor) ist damit per Definition `mittel`, nie `hoch`.
+**The tier basis is visible in every confidence line** in the body (e.g. `**Konfidenz:** mittel (3 Quellen, 1 Autor, tier 3)`). The pseudo-consensus case (3 sources = 1 author) is therefore `mittel` by definition, never `hoch`.
 
-### 3.10 Human-owned Typen-Familie (`HealthProtocol`, `HealthReview`, `DeepResearchPrompt`)
-> Seiten der human-owned Zone `wiki/personal/health/` (§2, ENT-062). Sie sind **nicht KI-geschrieben** und brauchen daher kein Voll-Schema und keine Agenten-Spezifikation — nur Index-Fähigkeit. **Pflichtfelder:** `type` (einer der drei Familien-Typen), `created`, `owner: human`. Alles Weitere (Status, Tags, Related, Struktur des Bodys) liegt in der Hand des Nutzers. `rebuild_index.py` führt sie in der Sektion `Human-Owned (health)` — damit sind sie graph_context-sichtbar (lesen ja, schreiben nie).
-
----
-
-## 4. Dateinamen-Konventionen
-
-| Entitätstyp    | Prefix  | Format                               | Beispiel                              |
-|----------------|---------|--------------------------------------|---------------------------------------|
-| PersonalFact   | `pf_`   | `pf_YYYY-MM-DD_kebab-title.md`       | `pf_2026-03-15_fahrrad-unfall.md`     |
-| VocabEntry     | `v_`    | `v_[lang]_kebab-wort.md`             | `v_es_madrugada.md`, `v_en_serendipity.md` |
-| CulturalEntry  | `c_`    | `c_[cc]_kebab-name.md`               | `c_mx_frida-kahlo.md`, `c_us_jazz.md` |
-| LanguageBridge | `lb_`   | `lb_[lang1]-[lang2]_kebab-topic.md`  | `lb_es-en_faux-amis-embarazada.md`    |
-| Concept        | `con_`  | `con_kebab-concept.md`               | `con_storytelling-struktur.md`        |
-| RawEvent       | —       | `YYYY-MM-DDTHH-MM-SS_source.json`    | `2026-04-18T09-32-11_telegram.json`   |
-| StyleProfile   | `sp_`   | `sp_[name].md`                       | `sp_chappelle.md`, `sp_ted-talk.md`   |
-| TopicPage      | `tp_`   | `tp_[domain]_kebab-topic.md` (Ablage `wiki/topics/`) | `tp_health_sauna.md`, `tp_tech_karpathy-llm-wiki.md` |
+### 3.10 Human-owned type family (`HealthProtocol`, `HealthReview`, `DeepResearchPrompt`)
+> Pages in the human-owned zone `wiki/personal/health/` (§2, ENT-062). They are **not written by the AI**, so they need no full schema and no agent specification, only the ability to be indexed. **Required fields:** `type` (one of the three family types), `created`, `owner: human`. Everything else (status, tags, related, body structure) is up to the user. `rebuild_index.py` lists them in the `Human-Owned (health)` section, which makes them visible as graph_context (read yes, write never).
 
 ---
 
-## 5. Frontmatter-Standard (YAML)
+## 4. File naming conventions
 
-Jede Wiki-Seite beginnt mit diesem YAML-Block:
+| Entity type | Prefix | Format | Example |
+|---|---|---|---|
+| PersonalFact | `pf_` | `pf_YYYY-MM-DD_kebab-title.md` | `pf_2026-03-22_first-burnt-socarrat.md` |
+| VocabEntry | `v_` | `v_[lang]_kebab-word.md` | `v_es_socarrat.md`, `v_en_serendipity.md` |
+| CulturalEntry | `c_` | `c_[cc]_kebab-name.md` | `c_es_paella-valenciana.md`, `c_mx_frida-kahlo.md` |
+| LanguageBridge | `lb_` | `lb_[lang1]-[lang2]_kebab-topic.md` | `lb_es-en_azafran.md` |
+| Concept | `con_` | `con_kebab-concept.md` | `con_storytelling-structure.md` |
+| RawEvent | — | `YYYY-MM-DDTHH-MM-SS_source.json` | `2026-04-18T09-32-11_telegram.json` |
+| StyleProfile | `sp_` | `sp_[name].md` | `sp_ted-talk.md` |
+| TopicPage | `tp_` | `tp_[domain]_kebab-topic.md` (stored in `wiki/topics/`) | `tp_tech_karpathy-llm-wiki.md` |
+
+---
+
+## 5. Frontmatter standard (YAML)
+
+Every wiki page starts with this YAML block:
 
 ```yaml
 ---
@@ -358,100 +358,102 @@ created: YYYY-MM-DD
 updated: YYYY-MM-DD
 status: raw | elaborated | story-ready | archived
 tags: []
-sources: []       # Links zu raw/sources/ oder raw/events/
-related: []       # Interne Wiki-Links [[andere-seite]]
+sources: []       # links to raw/sources/ or raw/events/
+related: []       # internal wiki links [[other-page]]
 ---
 ```
 
+The frontmatter must parse with `yaml.safe_load` without workarounds. `agents/frontmatter.py` is the single helper for reading, writing and patching it.
+
 ---
 
-## 6. Tech Stack
+## 6. Tech stack
 
-### 6.1 Komponenten-Übersicht
+### 6.1 Components
 
-| Komponente         | Technologie                  | Begründung                                      |
-|--------------------|------------------------------|-------------------------------------------------|
-| LLM-Core           | Claude API (Anthropic)       | Beste Reasoning-Qualität für Synthesis-Tasks    |
-| Bulk-Operationen   | Claude Haiku 4.5             | Günstig für Lint, Indexierung, Klassifikation   |
-| Agenten-Framework  | LangGraph (Python)           | Explizite Zustandsmaschinen, debuggbar          |
-| Input-Trigger      | python-telegram-bot          | Friction-freie Rohdaten-Eingabe                 |
-| Anki-Integration   | AnkiConnect (REST)           | Lokale Anki-API, kein Cloud-Overhead            |
-| Wissensspeicher    | Markdown-Dateien + Git       | Obsidian-kompatibel, versioniert, portabel      |
-| UI / Navigation    | Obsidian                     | Graph View, Dataview, kostenlos                 |
-| Suche (ab ~200 S.) | qmd oder sqlite-fts5         | BM25-Suche über Markdown, lokal                 |
+| Component | Technology | Rationale |
+|---|---|---|
+| LLM core | Claude API (Anthropic) | Strong reasoning for synthesis tasks |
+| Bulk operations | Claude Haiku 4.5 | Cheap for lint, indexing, classification |
+| Agent framework | LangGraph (Python) | Explicit state machines, debuggable |
+| Input trigger | python-telegram-bot | Friction-free raw data capture |
+| Anki integration | genanki (`.apkg` export) | Local, no Anki process or cloud needed |
+| Knowledge store | Markdown files + git | Obsidian-compatible, versioned, portable |
+| UI / navigation | Obsidian | Graph view, Dataview, free |
+| Search (larger wikis) | SQLite FTS5 | BM25 search over Markdown, local |
 
-### 6.2 Erweiterbarkeit
+### 6.2 Extensibility
 
-Das System ist **plugin-architektonisch** aufgebaut. Neue Features folgen diesem Muster:
+The system follows a **plugin architecture**. New features follow this pattern:
 
 ```
 agents/
-├── base_agent.py          # Abstrakte Basisklasse — Interface-Vertrag
-├── supervisor.py          # Zentrale Orchestrierung
-├── language_agent.py      # Modul: Sprache
-├── diary_agent.py         # Modul: Diary/Personal Facts
-└── [neue_komponente].py   # Neue Agenten folgen demselben Interface
+├── base_agent.py          # abstract base class: the interface contract
+├── supervisor.py          # central orchestration
+├── language_agent.py      # module: language
+├── diary_agent.py         # module: diary / personal facts
+└── [new_component].py     # new agents follow the same interface
 ```
 
-**Neue Schnittstellen** (Input-Kanäle) sind isoliert vom Graphen:
-- WhatsApp → eigener Receiver, schreibt in `raw/events/` → selber Pipeline wie Telegram
-- Web-UI → Flask/FastAPI-Endpoint → selbe `raw/events/` Pipeline
-- Scheduled-Jobs → Python `schedule`-Library oder systemd-Timer → selber Agent-Aufruf
+**New interfaces** (input channels) are isolated from the graph:
+- WhatsApp → its own receiver, writes to `raw/events/` → same pipeline as Telegram
+- Web UI → Flask/FastAPI endpoint → same `raw/events/` pipeline
+- Scheduled jobs → a scheduler → the same agent call
 
-**Prinzip:** Alles was Daten in `raw/events/` schreibt, ist kompatibel. Der Graph-Kern ändert sich nie.
+**Principle:** anything that writes data to `raw/events/` is compatible. The graph core never changes.
 
-### 6.3 LLM-Kosten-Strategie (Sensitivity-Tier-Modell)
+### 6.3 LLM cost strategy (sensitivity tier model)
 
-Personal Facts sind sensitiv, Vokabeln nicht. Daher drei Tiers:
+Personal facts are sensitive; vocabulary is not. Hence three tiers:
 
-| Tier | Datenkategorie                        | Modell              | Kosten (ca.)         | Begründung                          |
-|------|---------------------------------------|---------------------|----------------------|-------------------------------------|
-| 1    | VocabEntry, CulturalEntry, Concepts   | Claude Haiku 4.5    | ~$0.001/Seite        | Nicht-sensitiv, Bulk OK             |
-| 2    | Synthesis, Story-Crafting, Bridges    | Claude Sonnet 4.6   | ~$0.01/Seite         | Braucht gutes Reasoning             |
-| 3    | PersonalFacts mit `sensitivity: high` | Ollama (lokal)      | $0.00                | Verlässt nie das Gerät              |
+| Tier | Data category | Model | Cost (approx.) | Rationale |
+|---|---|---|---|---|
+| 1 | VocabEntry, CulturalEntry, Concepts | Claude Haiku 4.5 | ~$0.001/page | Not sensitive, bulk is fine |
+| 2 | Synthesis, story crafting, bridges | Claude Sonnet 4.6 | ~$0.01/page | Needs good reasoning |
+| 3 | PersonalFacts with `sensitivity: private` | Ollama (local) | $0.00 | Never leaves the device |
 
-**Sensitivity-Tag** in jedem PersonalFact-Frontmatter:
+**Sensitivity tag** in every PersonalFact's frontmatter:
 ```yaml
 sensitivity: public | sensitive | private
 ```
-- `public` → Haiku/Sonnet
-- `sensitive` → Sonnet, aber Anonymisierung vor API-Call (PII-Stripping)  
-- `private` → nur lokales Modell (Ollama: `llama3.2` oder `mistral`)
+- `public` → Haiku / Sonnet
+- `sensitive` → Sonnet, but anonymized before the API call (PII stripping)
+- `private` → local model only (Ollama: `llama3.2` or `mistral`)
 
-**Geschätzte Monatskosten** bei täglichem Gebrauch: **$3–8/Monat** (überwiegend Haiku für Lint + Indexierung, Sonnet nur für tiefe Synthesis).
-
----
-
-## 7. LLM-Instruktions-Konventionen
-
-Jeder Agent erhält seinen Kontext in dieser Reihenfolge:
-1. `SCHEMA.md` (diese Datei) — Systemregeln
-2. `index.md` — aktueller Graphzustand
-3. Aufgaben-spezifische Modul-Datei (`COMP_LANGUAGE.md`, `COMP_DIARY.md`, etc.)
-4. Relevante Wiki-Seiten (vom Supervisor ausgewählt)
-5. Der konkrete Task
+**Estimated monthly cost** with daily use: **$3–8 per month** (mostly Haiku for lint and indexing, Sonnet only for deep synthesis).
 
 ---
 
-## 8. Selbstheilungs-Definition ("Was ist ein kranker Graph?")
+## 7. LLM instruction conventions
 
-Ein **Lint-Pass** (täglich, durch Supervisor getriggert) prüft:
-
-| Symptom                          | Diagnose               | Heilung                                      |
-|----------------------------------|------------------------|----------------------------------------------|
-| Wiki-Seite hat keine `related:`  | Verwaiste Seite        | LLM sucht und ergänzt Querverweise           |
-| `status: raw` älter als 7 Tage  | Unverarbeiteter Input  | Agenten-Task: elaborieren oder archivieren   |
-| Widerspruch zwischen zwei Facts  | Inkonsistenz           | LLM flaggt, Nutzer entscheidet               |
-| `story_score` > 7, nie geübt    | Verschwendetes Potential| Diary-Agent schlägt Übungsrunde vor          |
-| VocabEntry ohne Anki-Karte       | Lernlücke              | Language-Agent triggert Anki-Export          |
+Every agent receives its context in this order:
+1. `SCHEMA.md` (this file): system rules
+2. `index.md`: current graph state
+3. The task-specific module spec (`COMP_LANGUAGE.md`, `COMP_DIARY.md`, etc.)
+4. Relevant wiki pages (selected by the supervisor)
+5. The concrete task
 
 ---
 
-## 9. Offene Fragen (Backlog)
+## 8. Self-healing ("what is an unhealthy graph?")
 
-- [ ] Wie granular soll der Supervisor das Nutzerprofil modellieren?
-- [ ] Brauchen wir eine SQLite-DB für strukturierte Queries auf PersonalFacts?
-- [ ] Wie Konfliktauflösung bei Widersprüchen im Graph gestalten (LLM-Flag vs. Auto-Merge)?
-- [x] Datenschutz: Sensitivity-Tier-Modell implementiert (public/sensitive/private → Haiku/Sonnet/Ollama)
-- [x] Ollama-Setup: llama3.2 als Default, mistral als Fallback (QK-5, Session 008) — siehe ENTSCHEIDUNGEN.md ENT-028.
-- [ ] `user_language_profile.md` Schema definieren — wie oft aktualisiert, welche Schwellwerte?
+A **lint pass** (daily, triggered by the supervisor) checks:
+
+| Symptom | Diagnosis | Remedy |
+|---|---|---|
+| Wiki page has no `related:` | Orphan page | LLM finds and adds cross-links |
+| `status: raw` older than 7 days | Unprocessed input | Agent task: elaborate or archive |
+| Contradiction between two facts | Inconsistency | LLM flags it, the user decides |
+| `story_score` > 7, never practiced | Wasted potential | Diary agent suggests a practice round |
+| VocabEntry without an Anki card | Learning gap | Language agent triggers the Anki export |
+
+---
+
+## 9. Open questions
+
+- [ ] How granular should the supervisor's user model be?
+- [ ] Do we need an SQLite DB for structured queries on PersonalFacts?
+- [ ] How should contradictions in the graph be resolved (LLM flag vs. auto-merge)?
+- [x] Privacy: sensitivity tier model (public / sensitive / private → Haiku / Sonnet / Ollama)
+- [x] Ollama setup: llama3.2 as the default, mistral as the fallback (ENT-028)
+- [ ] Define the schema of `user_language_profile.md`: update frequency, thresholds?

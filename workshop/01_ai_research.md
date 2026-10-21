@@ -31,14 +31,14 @@
 | Concept | 0 | (Ordner existiert nicht) |
 | StyleProfile | 0 | (Ordner existiert nicht) |
 
-**Gesamt: ~21 Markdown-Files** — also weit unter dem Phase-2-Schwellwert von 150 ([ARCHITECTURE.md §6.3](../doc/ARCHITECTURE.md#63-graph-reader--index-abstraktion)) und deutlich unter dem 30-Seiten-Schwellwert in [ENT-027](../doc/ENTSCHEIDUNGEN.md). Wir sind in der **Bootstrap-Phase** ([KNOWLEDGE_GRAPH.md §6](../doc/KNOWLEDGE_GRAPH.md#6-graph-wachstumsphasen)), zweiter Anstieg.
+**Gesamt: ~21 Markdown-Files** — also weit unter dem Phase-2-Schwellwert von 150 ([ARCHITECTURE.md §6.3](../doc/de/ARCHITECTURE.md#63-graph-reader--index-abstraktion)) und deutlich unter dem 30-Seiten-Schwellwert in [ENT-027](../doc/ENTSCHEIDUNGEN.md). Wir sind in der **Bootstrap-Phase** ([KNOWLEDGE_GRAPH.md §6](../doc/KNOWLEDGE_GRAPH.md#6-graph-wachstumsphasen)), zweiter Anstieg.
 
 **Drift Index ↔ Filesystem ist real.** [index.md](../index.md) listet `pf_2026-04-22_*` und `pf_2026-04-21_*`-Einträge die im Filesystem nicht (mehr) existieren. Außerdem: `v_es_enzimismado` (Tippfehler, sollte `ensimismado` sein), `v_es_hola`, `v_es_sonrisa` — alle drei nur im Index, nicht im Filesystem. Das ist nicht harmlos: jede `graph_reader`-Suche erzeugt _potenziell tote Treffer_.
 
-**Relationen heute:** über Obsidian-Wiki-Links im `related:`-Frontmatter-Feld ([SCHEMA.md §5](../doc/SCHEMA.md#5-frontmatter-standard-yaml)). Plus implizite Relation per `cross_language_bridges` (auf VocabEntry) und `cross_cultural_links` (auf CulturalEntry). Manuell von [language_agent.write_entries](../agents/language_agent.py#L389-L557) in den Markdown-Body geschrieben — **ohne Backlink-Symmetrie**. Bidirektionale Konsistenz ist explizit Lint-Aufgabe ([KNOWLEDGE_GRAPH.md §4.3](../doc/KNOWLEDGE_GRAPH.md)) — und Lint ist Stub.
+**Relationen heute:** über Obsidian-Wiki-Links im `related:`-Frontmatter-Feld ([SCHEMA.md §5](../doc/de/SCHEMA.md#5-frontmatter-standard-yaml)). Plus implizite Relation per `cross_language_bridges` (auf VocabEntry) und `cross_cultural_links` (auf CulturalEntry). Manuell von [language_agent.write_entries](../agents/language_agent.py#L389-L557) in den Markdown-Body geschrieben — **ohne Backlink-Symmetrie**. Bidirektionale Konsistenz ist explizit Lint-Aufgabe ([KNOWLEDGE_GRAPH.md §4.3](../doc/KNOWLEDGE_GRAPH.md)) — und Lint ist Stub.
 
 **Wachstums-Pfade** (heute aktiv):
-1. **Telegram-Text** → [bot.py](../bot.py) → `raw/events/` → Supervisor → Diary/Language-Agent → WikiWrite ([ARCHITECTURE.md §3.3](../doc/ARCHITECTURE.md#33-supervisor-entscheidungslogik)).
+1. **Telegram-Text** → [bot.py](../bot.py) → `raw/events/` → Supervisor → Diary/Language-Agent → WikiWrite ([ARCHITECTURE.md §3.3](../doc/de/ARCHITECTURE.md#33-supervisor-entscheidungslogik)).
 2. **Telegram-Voice** → [audio_extractor.py](../agents/extractors/audio_extractor.py) (Whisper) → wie 1.
 3. **Vocab via Hint-Gate** → [supervisor.py:87-95](../agents/supervisor.py#L87-L95) ([ENT-047](../doc/ENTSCHEIDUNGEN.md)/[ENT-048](../doc/ENTSCHEIDUNGEN.md)) → Language-Agent → Vocab + Bridges + Culture.
 4. **Anki-Output** → [scripts/export_anki.py](../scripts/export_anki.py) ([ENT-050](../doc/ENTSCHEIDUNGEN.md) bis [ENT-052](../doc/ENTSCHEIDUNGEN.md)). Einseitig (Wiki → Anki); kein Sync-Back.
@@ -54,7 +54,7 @@
 
 #### (a) Indexierung
 - **Was:** [index.md](../index.md) wird beim WikiWrite append-mäßig fortgeschrieben. Format: `## Section (N)` + `- [[slug]] — summary`.
-- **Wie/Wer:** Implizit über `index_updater` (in [ARCHITECTURE.md §6.1](../doc/ARCHITECTURE.md#61-graph-struktur-ingestion-flow) als LangGraph-Node spezifiziert) — **Code-Search liefert kein eigenständiges Modul** (`agents/index_updater.py` existiert nicht). Vermutung: Index wird heute manuell oder gar nicht gepflegt; Drift bestätigt das.
+- **Wie/Wer:** Implizit über `index_updater` (in [ARCHITECTURE.md §6.1](../doc/de/ARCHITECTURE.md#61-graph-struktur-ingestion-flow) als LangGraph-Node spezifiziert) — **Code-Search liefert kein eigenständiges Modul** (`agents/index_updater.py` existiert nicht). Vermutung: Index wird heute manuell oder gar nicht gepflegt; Drift bestätigt das.
 - **Phase-Schalter ([ENT-027](../doc/ENTSCHEIDUNGEN.md)):** [graph_reader.py:20](../agents/graph_reader.py#L20) hat `WIKI_PAGE_THRESHOLD = 30`. Phase 2 (SQLite FTS5) ist Stub mit funktionierendem Fallback auf Phase 1, aber niemals aktiv getestet (siehe [hinweise/technischer_hinweis.md §Was nicht getestet](../hinweise/technischer_hinweis.md)).
 - **Zusatz-Index `wiki_index.db`:** Nicht vorhanden — wäre Output von einem Build-Skript, das nicht existiert.
 
@@ -92,7 +92,7 @@
 | # | Bereich | Lücke | Quelle |
 |---|---|---|---|
 | L1 | Lint | `LintAgent._apply_auto_fixes()` ist `[STUB]` | [ENT-017](../doc/ENTSCHEIDUNGEN.md), [agents/lint_agent.py](../agents/lint_agent.py) |
-| L2 | Indexierung | Kein `index_updater` als eigenständiger Code-Pfad; Drift Index ↔ FS belegt | [ARCHITECTURE.md §6.1](../doc/ARCHITECTURE.md#61-graph-struktur-ingestion-flow) vs. [agents/](../agents/) |
+| L2 | Indexierung | Kein `index_updater` als eigenständiger Code-Pfad; Drift Index ↔ FS belegt | [ARCHITECTURE.md §6.1](../doc/de/ARCHITECTURE.md#61-graph-struktur-ingestion-flow) vs. [agents/](../agents/) |
 | L3 | Retrieval | `index.md`-Summaries sind Slug-Replikate → Phase 1 Retrieval ist faktisch nur Slug-Match | [index.md:7-23](../index.md#L7-L23) |
 | L4 | Retrieval | Phase-2-SQLite-FTS5-Pfad nie getestet, kein Build-Skript | [hinweise/technischer_hinweis.md §Was nicht getestet](../hinweise/technischer_hinweis.md), [agents/graph_reader.py:207-256](../agents/graph_reader.py#L207-L256) |
 | L5 | Konsolidierung | Keine Dedup-Routine; sichtbare Duplikate im Index | [index.md](../index.md) (PFs `*madrugada*`, Vocab `enzimismado`/`ensimismado`) |
@@ -112,7 +112,7 @@
 
 1. **Index-Drift + Slug-Summaries** (L2 + L3). Akut: Retrieval ist heute schwach, weil die Datenbasis von `_search_index_md` aus zwei Quellen besteht — `_slug_to_tags` (Tokens aus Dateiname) und `_extract_keywords(summary)` (Tokens aus Summary). Wenn `summary == slug`, fällt zweite Quelle weg und der Score-Nenner halbiert sich. Bootstrap-Phase ist exakt der Zeitraum, in dem präzise graph_context-Treffer den größten Hebel hätten.
 2. **Frontmatter-Schuld auf VocabEntries** (L6). Drei Folgewirkungen: (a) pyyaml-Verweigerung blockiert künftige Lint-Auto-Fixes, (b) Anki-Export schleppt Regex-Workaround mit, (c) jede Story-Lab-/Service-Anbindung an Vocab muss eigenen Parser bauen. Kosten wachsen mit Konsumenten-Zahl, nicht mit Zeit.
-3. **Lint ist Stub trotz vier Lint-Tasks im Schema** (L1, L5, L7). [SCHEMA.md §8](../doc/SCHEMA.md#8-selbstheilungs-definition-was-ist-ein-kranker-graph) listet 5 Symptome — heute kein einziges automatisch reparierbar. Konsolidierung entsteht nicht von selbst.
+3. **Lint ist Stub trotz vier Lint-Tasks im Schema** (L1, L5, L7). [SCHEMA.md §8](../doc/de/SCHEMA.md#8-selbstheilungs-definition-was-ist-ein-kranker-graph) listet 5 Symptome — heute kein einziges automatisch reparierbar. Konsolidierung entsteht nicht von selbst.
 4. **Multi-Modal-Pfade still: Code lebt, Trigger fehlen** (L8, L9). Bei einem Single-User-System mit ohnehin geringen Kosten (Haiku ~$0.001/Bildbeschreibung) ist das verschenkte Substanz: PDFs, Web-Clipper-Ausgaben und alte Whatsapp-Bild-Drops könnten den Bootstrap-Phase-Schmerz lindern.
 5. **Renderer-Symbiose minimal** (L12, L13). Anki ist heute der einzige Frontend-Konsument. Der Rückkanal (Anki-Backlink) zeigt zur Wiki-Datei — er prüft nicht, ob die Datei seit dem Karten-Export geändert wurde, und er bringt weder Audio (obwohl Whisper-File da war) noch Bild (obwohl Vision möglich wäre). UX-Phase 2 hat hier viel Spielraum.
 
@@ -161,9 +161,9 @@
 **ICLR 2026 MemAgents Workshop** (OpenReview): zeigt, dass Memory-für-Agenten ein eigenes Forschungsfeld geworden ist. Offene Probleme: Privacy-Governance ("how users inspect, edit, delete memories"), App-Level-Evaluation. Beides sind in unserem System konzeptuell gelöst (Sensitivity-Tier [ENT-006](../doc/ENTSCHEIDUNGEN.md), Obsidian als read-only Editor) — und damit struktureller Vorteil gegenüber typischen Cloud-Agent-Memory-Systemen.
 
 **Karpathy-Pattern in der Community** (Spisak `second-brain` GitHub-Repo, kytmanov `obsidian-llm-wiki-local`, ussumant `llm-wiki-compiler` Claude-Code-Plugin, DAIR.AI Academy Blog 2025, TheToolNerd Step-by-Step-Guide): das Pattern ist 2025–26 reproduziert, gefork't, und mehrfach als Claude-Code-Plugin/Skill umgesetzt worden. Gemeinsame Erweiterungen, die wir übernehmen könnten:
-- **Nightly-Lint mit fünf Phasen:** day-close, contradiction-reconcile, cross-source-pattern, orphan-heal, index-rebuild ([second-brain README](https://github.com/NicholasSpisak/second-brain), 2025) — mappt 1:1 auf [SCHEMA.md §8](../doc/SCHEMA.md) Symptome.
+- **Nightly-Lint mit fünf Phasen:** day-close, contradiction-reconcile, cross-source-pattern, orphan-heal, index-rebuild ([second-brain README](https://github.com/NicholasSpisak/second-brain), 2025) — mappt 1:1 auf [SCHEMA.md §8](../doc/de/SCHEMA.md) Symptome.
 - **Index als One-Liner-Summaries (Pflicht):** statt unserer Slug-Replikate.
-- **Reflective Pass:** der LLM darf seinen eigenen Output als Quelle in den Wiki zurück-filen ([ARCHITECTURE.md §2.3 QUERY](../doc/ARCHITECTURE.md#23-graph-operationen) sieht das vor — heute aber inaktiv, weil der Query-Flow nicht implementiert ist).
+- **Reflective Pass:** der LLM darf seinen eigenen Output als Quelle in den Wiki zurück-filen ([ARCHITECTURE.md §2.3 QUERY](../doc/de/ARCHITECTURE.md#23-graph-operationen) sieht das vor — heute aber inaktiv, weil der Query-Flow nicht implementiert ist).
 
 ---
 
@@ -246,7 +246,7 @@
 ### C8: User-Profile Self-Refresh aus Graph-Inhalt
 - **Klassifizierung:** `[MACHBAR-BEDINGT: erst wenn Lint live (C3)]`
 - **Was:** Lint-Pass scannt `wiki/personal/facts/`, aggregiert Sprach-Verteilung, Themen-Cluster, story_score-Statistiken → Sonnet refresh `user_profile.md` einmal pro Woche.
-- **State-of-Art-Bezug:** §B4 mem0 reflective self-improvement (Mechanismus 3); [ARCHITECTURE.md §3.4](../doc/ARCHITECTURE.md#34-supervisor-als-nutzer-anwalt).
+- **State-of-Art-Bezug:** §B4 mem0 reflective self-improvement (Mechanismus 3); [ARCHITECTURE.md §3.4](../doc/de/ARCHITECTURE.md#34-supervisor-als-nutzer-anwalt).
 - **Aufwand:** ~4 Stunden + ~$0,05/Woche LLM-Kosten.
 - **Kosten:** ~$0,20/Monat.
 - **Risiko:** Drift zwischen aktiver Telegram-Session-Kontext und persistiertem Profil. Mitigation: Append-Diff statt Overwrite.

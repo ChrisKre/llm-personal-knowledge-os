@@ -130,7 +130,7 @@ Was fehlt: Ton-Coaching auf Basis der echten Stimme.
 
 ## 8. Vom Workshop 02 aufgedeckte Schulden (Stand 2026-07-04)
 
-> Quelle: [workshop_02/03_qm.md §Aktualisierungs-Vorschlag](../workshop_02/03_qm.md), vom PO in S030-Phase 4 (Synthese) übernommen. Backlog: [workshop_02/backlog.md](../workshop_02/backlog.md).
+> Quelle: workshop_02/03_qm.md §Aktualisierungs-Vorschlag, vom PO in S030-Phase 4 (Synthese) übernommen. Backlog: workshop_02/backlog.md.
 
 ### Neue Schulden (vom Workshop-02-QM aufgedeckt, Code-verifiziert)
 

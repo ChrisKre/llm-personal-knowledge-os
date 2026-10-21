@@ -1,635 +1,614 @@
-# ARCHITECTURE.md — System-Architektur: LLM-Personal-Knowledge-OS
-> Version: 0.2 | Datum: 2026-04-18 | Status: DRAFT
+# ARCHITECTURE.md: System architecture of llm-personal-knowledge-os
+> Version: 0.2 (English edition, 2026-10) | Status: DRAFT | German original: [de/ARCHITECTURE.md](de/ARCHITECTURE.md)
+>
+> This document describes the **target design**. Where the current code differs, a *Status* note says so.
 
 ---
 
-## 1. Architektur-Überblick
+## 1. Overview
 
-Das System hat **zwei getrennte "Graphen"** — ein wichtiger konzeptueller Unterschied:
+The system has **two separate "graphs"**, and the distinction matters:
 
-| Begriff              | Was es ist                                          | Wer schreibt    | Wo lebt es            |
-|----------------------|-----------------------------------------------------|-----------------|-----------------------|
-| **Knowledge Graph**  | Die Markdown-Wiki — persistentes Nutzer-Gedächtnis  | LLM-Agenten     | `wiki/` (Dateisystem) |
-| **Agent Graph**      | LangGraph Zustandsmaschine — Orchestrierung         | Python-Code     | RAM (pro Lauf)        |
+| Term | What it is | Who writes it | Where it lives |
+|---|---|---|---|
+| **Knowledge graph** | The Markdown wiki: the user's persistent memory | LLM agents | `wiki/` in the vault (file system) |
+| **Agent graph** | The LangGraph state machine: orchestration | Python code | RAM (per run) |
 
-Der **Knowledge Graph ist der einzige persistente Zustand des Systems.** Der Agent Graph ist ephemer — er wird pro Task gestartet und endet. Alles was wichtig ist, landet im Knowledge Graph.
+**The knowledge graph is the system's only persistent state.** The agent graph is ephemeral: it starts for one task and ends with it. Everything that matters ends up in the knowledge graph.
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        NUTZER-KONTEXT                           │
-│  Telegram · Datei-Drop in raw/ · (weitere Input-Kanäle)         │
-│  Input-Typen: Text · URL · Bild · PDF · Voice · YouTube         │
-│  Optional: Kontext-Hint ("interessant für Vokabel", #story, ...) │
+│                         USER CONTEXT                            │
+│  Telegram · file drop into raw/ · (more input channels)         │
+│  Input types: text · URL · image · PDF · voice · YouTube        │
+│  Optional: context hint ("good for vocab", #story, ...)         │
 └────────────────────────┬────────────────────────────────────────┘
-                         │
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      EXTRACTOR                                  │
-│  Format-Erkennung → Typ-spezifische Extraktion                  │
-│  URL→BeautifulSoup · PDF→pdfplumber · Bild→Claude Vision        │
-│  Voice→faster-whisper · YouTube→youtube-transcript-api          │
-│  Ergebnis: normalisierter Text (gleiches Schema, egal was rein)  │
-│  Speichert: Original → raw/sources|assets/ (permanent)          │
+│                         EXTRACTOR                               │
+│  Format detection → type-specific extraction                    │
+│  URL→BeautifulSoup · PDF→pdfplumber · image→Claude Vision       │
+│  voice→faster-whisper · YouTube→youtube-transcript-api          │
+│  Result: normalized text (same schema whatever came in)         │
+│  Stores: original → raw/sources|assets/ (permanent)             │
 └────────────────────────┬────────────────────────────────────────┘
                          │ ExtractedContent (JSON)
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                      raw/events/                                │
-│              [IMMUTABLE — Append Only]                          │
+│                        raw/events/                              │
+│                 [IMMUTABLE, append only]                        │
 └────────────────────────┬────────────────────────────────────────┘
-                         │
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│               SUPERVISOR — Stufe 1: Klassifikation              │
-│  Liest: user_profile.md (komprimierte Nutzersignatur)           │
-│  Entscheidet: Intent? Welcher Agent? Welches Modell?            │
+│              SUPERVISOR, stage 1: classification                │
+│  Reads: user_profile.md (compressed user signature)             │
+│  Decides: intent? which agent? which model?                     │
 └────────────────────────┬────────────────────────────────────────┘
-                         │
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│            GRAPH CONTEXT MATCH  ◄── NEU                        │
-│  Anfrage → Schlüsselbegriffe extrahieren                        │
-│  → index.md / SQLite durchsuchen                               │
-│  → Top-N relevante Wiki-Seiten laden                            │
-│  Ergebnis: graph_context (relevante Seiten als Kontext)         │
+│                    GRAPH CONTEXT MATCH                          │
+│  Request → extract key terms                                    │
+│  → search index.md / SQLite                                     │
+│  → load the top-N relevant wiki pages                           │
+│  Result: graph_context (relevant pages as context)              │
 └────────────────────────┬────────────────────────────────────────┘
-                         │ graph_context im State
+                         │ graph_context in state
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│               SUPERVISOR — Stufe 2: Routing                     │
-│  Verteilt Task + graph_context an Agenten                       │
+│                 SUPERVISOR, stage 2: routing                    │
+│  Hands task + graph_context to the agents                       │
 └──────┬──────────────┬──────────────┬──────────────┬────────────┘
-       │              │              │              │
        ▼              ▼              ▼              ▼
-  [Ingestion]   [Language]      [Diary]         [Lint]
-   Agent         Agent           Agent           Agent
-   (kein GC)    (GC: verwandte  (GC: ähnliche   (kein GC)
-                 Vokabeln,       Facts, Themen,
-                 Brücken)        Muster)
-       │              │              │              │
+  [Ingestion]    [Language]      [Diary]         [Lint]
+   (no GC)      (GC: related    (GC: similar    (no GC)
+                 vocab,          facts, topics,
+                 bridges)        patterns)
        └──────────────┴──────────────┴──────────────┘
-                         │ WikiWrite-Objekte
+                         │ WikiWrite objects
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│           SUPERVISOR — Stufe 3: Bewertung & Freigabe            │
-│  Prüft Agent-Output gegen user_profile + graph_context          │
-│  Gibt Schreib-Freigabe oder sendet zur Revision                 │
+│             SUPERVISOR, stage 3: review and approval            │
+│  Checks agent output against user_profile + graph_context       │
+│  Approves the write or sends it back for revision               │
 └────────────────────────┬────────────────────────────────────────┘
-                         │
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    KNOWLEDGE GRAPH                              │
-│              wiki/ — Markdown-Dateien                           │
-│         index.md · log.md · user_profile.md                    │
-└─────────────────────────────────────────────────────────────────┘
-                         │
+│                      KNOWLEDGE GRAPH                            │
+│               wiki/ (Markdown files)                            │
+│          index.md · log.md · user_profile.md                    │
+└────────────────────────┬────────────────────────────────────────┘
                          ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                       OBSIDIAN                                  │
-│              [Read-Only für Nutzer]                             │
+│                        OBSIDIAN                                 │
+│                 [read-only for the user]                        │
 └─────────────────────────────────────────────────────────────────┘
 ```
+
+*Status:* "Ingestion" is implemented as `Supervisor.classify`, not as a separate agent. The lint agent exists (`agents/lint_agent.py`) but is not yet a node in the pipeline (see [ROADMAP](../ROADMAP.md)).
 
 ---
 
-## 2. Der Knowledge Graph
+## 2. The knowledge graph
 
-### 2.1 Was der Graph ist
+### 2.1 What the graph is
 
-Der Knowledge Graph ist **kein Datenbank-Schema** und **kein Index**. Er ist eine kompilierte, interverlinkte Struktur aus Markdown-Dateien, die das Wissen und die Persönlichkeit des Nutzers repräsentiert.
+The knowledge graph is **not a database schema** and **not an index**. It is a compiled, interlinked set of Markdown files that represents the user's knowledge and personality.
 
-Drei Eigenschaften sind entscheidend:
+Three properties matter:
 
-1. **Kompiliert, nicht retrieved.** Wissen wird einmal verarbeitet und in Struktur überführt. Beim Abruf wird nicht gesucht — es wird gelesen.
-2. **Lebt in Querverweisen.** Eine VocabEntry-Seite allein hat wenig Wert. Ihr Wert entsteht durch Links zu CulturalEntries, PersonalFacts und Concepts, die ihr Bedeutung geben.
-3. **Wächst und heilt sich.** Neue Inputs erweitern den Graphen. Der Lint-Agent erkennt und korrigiert strukturelle Schwächen.
+1. **Compiled, not retrieved.** Knowledge is processed once and turned into structure. At read time nothing is searched for from scratch; it is read.
+2. **Lives in its links.** A VocabEntry page on its own is worth little. Its value comes from links to CulturalEntries, PersonalFacts and Concepts that give it meaning.
+3. **Grows and heals.** New input extends the graph. The lint agent detects and repairs structural weaknesses.
 
-### 2.2 Navigations-Einstiegspunkte
+### 2.2 Navigation entry points
 
-Der Graph hat zwei spezielle Dateien die als Navigationshilfe für LLMs dienen:
+Three special files help LLMs navigate the graph (examples from the fictional [`sample_vault/`](../sample_vault/)):
 
-**`index.md`** — Content-orientiert
+**`index.md`**: content-oriented, generated by [`scripts/rebuild_index.py`](../scripts/rebuild_index.py)
 ```markdown
-## PersonalFacts (12)
-- [[pf_2026-03-15_fahrrad-unfall]] — Unfall in München, story_score: 8
-- [[pf_2026-02-01_erste-flamenco-show]] — Erstes Flamenco-Erlebnis, story_score: 6
+## PersonalFacts (3)
+- [[pf_2026-03-22_first-burnt-socarrat]] — pf_2026-03-22_first-burnt-socarrat (story_score: 7)
+- [[pf_2026-04-18_paella-cooking-class]] — pf_2026-04-18_paella-cooking-class (story_score: 6)
 ...
 
-## VocabEntries — ES (47)
-- [[v_es_madrugada]] — "frühe Morgenstunden", keine direkte DE-Übersetzung
+## VocabEntries — ES (4)
+- [[v_es_socarrat]] — socarrat
 ...
 ```
 
-**`log.md`** — Chronologisch, append-only
+**`log.md`**: chronological, append-only
 ```markdown
-## [2026-04-18] ingest | Telegram: "war heute bei einem Flamenco-Kurs"
-## [2026-04-17] lint | 3 verwaiste Seiten gefunden, 2 repariert
-## [2026-04-16] query | Nutzer fragte nach Spanisch-Wörtern für Musik
+## [2026-03-22T21:40:00] ingest | PersonalFact created: pf_2026-03-22_first-burnt-socarrat (story_score 7)
+## [2026-03-22T21:40:30] ingest | VocabEntry created: v_es_socarrat
+## [2026-04-02T22:05:00] practice | Story practiced: pf_2026-03-22_first-burnt-socarrat
 ```
 
-**`user_profile.md`** — Das Nutzer-Modell (Supervisor-Kernwissen)
+**`user_profile.md`**: the user model (the supervisor's core knowledge)
 ```markdown
-# Nutzer-Profil
-## Sprachprofil
-- Primärsprache: Deutsch
-- Aktive Zielsprachen: Spanisch (ES, MX), Englisch
-- Erkannte Input-Verteilung: 60% DE, 30% ES, 10% EN (letzten 30 Tage)
+# User profile
+## Language profile
+- Primary language: de
+- Active target languages: es, en
+- Observed input distribution: 60% de, 30% es, 10% en (last 30 days)
 
-## Interessen-Cluster
-- Spanische Kultur / Lateinamerika (hoch)
-- Soziale Interaktion / Storytelling (hoch)
-- [weitere aus Graph-Analyse]
+## Interest clusters
+- Spanish cooking (high)
+- Storytelling (medium)
 
-## Personal-Facts-Profil
-- story_score Durchschnitt: 6.2
-- Noch nicht geübte Facts mit score > 7: 3
+## PersonalFacts profile
+- Average story_score: 6.0
+- Unpracticed facts with score > 7: 1
 ```
 
-### 2.3 Graph-Operationen
+### 2.3 Graph operations
 
-Es gibt genau **drei Grund-Operationen** auf dem Graphen:
+There are exactly **three basic operations** on the graph.
 
 #### INGEST
-Neuer Rohstoff kommt rein → Graph-Kontext wird abgerufen → wird verarbeitet → Graph wird erweitert.
+New raw input arrives → graph context is fetched → input is processed → graph is extended.
 
 ```
-RawEvent eingelesen
-    → Supervisor klassifiziert (Sprache? PersonalFact? Beides?) [Haiku]
-    → Graph Context Match: Schlüsselbegriffe → Top-N relevante Wiki-Seiten laden
-    → Zuständiger Agent verarbeitet MIT graph_context als Kontext [Sonnet]
-    → 1–N neue oder aktualisierte Wiki-Seiten
-    → index.md Update
-    → log.md Eintrag
-    → user_profile.md ggf. aktualisiert
+RawEvent read
+    → supervisor classifies (language? PersonalFact? both?)       [Haiku]
+    → graph context match: key terms → load top-N relevant pages
+    → responsible agent processes WITH graph_context              [Sonnet]
+    → 1–N new or updated wiki pages
+    → index.md update
+    → log.md entry
+    → user_profile.md updated if needed
 ```
 
-**Der entscheidende Effekt:** Jeder neue Input wird nicht isoliert bewertet, sondern im Kontext des gesamten bisherigen Wissens des Nutzers. Ein `story_score` ist damit keine absolute Zahl — er misst den Wert des neuen Facts *relativ zu dem, was der Graph bereits kennt*.
+**The key effect:** no input is judged in isolation, only in the context of everything the graph already knows. A `story_score` is therefore not an absolute number. It measures the value of a new fact *relative to what the graph already contains*.
 
 #### QUERY
-Nutzer stellt Frage → Graph wird gelesen → Antwort wird (optional) zurückgeschrieben.
+The user asks a question → the graph is read → the answer is (optionally) written back.
 
 ```
-Frage eingelesen
-    → Supervisor liest index.md
-    → Relevante Seiten werden geladen (kein Embedding-Lookup — nur Index-Scan)
-    → Sonnet synthetisiert Antwort mit Quellen-Links
-    → Optional: Antwort als neue Concept-Seite gespeichert
-    → log.md Eintrag
+Question read
+    → supervisor reads index.md
+    → relevant pages are loaded (no embedding lookup, index scan only)
+    → Sonnet synthesizes an answer with source links
+    → optional: answer saved as a new Concept page
+    → log.md entry
 ```
+
+*Status:* the `query` intent is classified but currently routed straight to review; there is no dedicated query flow yet.
 
 #### LINT
-Periodisch (täglich) → Graph-Gesundheit prüfen → Schwächen beheben.
+Periodically (daily) → check graph health → repair weaknesses.
 
 ```
-Lint-Agent scannt alle Wiki-Seiten
-    → Prüft Symptome (siehe SCHEMA.md §8)
-    → Erstellt Fix-Tasks pro Symptom
-    → Führt automatisch reparierbare Fixes aus
-    → Flaggt nicht-automatisch reparierbare für Nutzer
-    → log.md Eintrag mit Lint-Report
+Lint agent scans all wiki pages
+    → checks the symptoms (see SCHEMA.md §8)
+    → creates a fix task per symptom
+    → applies fixes that can be automated
+    → flags the rest for the user
+    → log.md entry with the lint report
 ```
 
 ---
 
 ## 3. Supervisor
 
-### 3.1 Rolle
+### 3.1 Role
 
-Der Supervisor ist **kein LLM-Agent im klassischen Sinn**. Er ist ein **Routing- und Bewertungs-Layer** — er orchestriert, bewertet und priorisiert. Er hat immer den Nutzer als Maßstab.
+The supervisor is **not an LLM agent in the classic sense**. It is a **routing and review layer**: it orchestrates, evaluates and prioritizes, always with the user as the yardstick.
 
-**Supervisor-Prinzip:** *"Was würde dem Nutzer jetzt am meisten nützen?"*
+**Supervisor principle:** *"What would help the user most right now?"*
 
-### 3.2 Supervisor-Zustand (pro Lauf)
+### 3.2 Supervisor state (per run)
 
 ```python
 class SupervisorState(TypedDict):
-    raw_event: RawEvent           # Der aktuelle Input
-    user_profile: dict            # Aus user_profile.md geladen (komprimiert, ~3000 Tokens)
-    graph_index: str              # index.md Inhalt (Navigationshilfe)
+    raw_event: RawEvent           # the current input
+    user_profile: dict            # loaded from user_profile.md (compressed, ~3000 tokens)
+    graph_index: str              # contents of index.md (navigation aid)
     classified_intent: str        # "vocab" | "personal_fact" | "both" | "query" | "lint"
-    graph_context: list[WikiPage] # ◄ NEU: relevante Wiki-Seiten für diesen spezifischen Input
-    assigned_agents: list[str]    # Welche Agenten werden aktiviert
-    agent_outputs: dict           # Ergebnisse der Agenten
+    graph_context: list[WikiPage] # relevant wiki pages for this specific input
+    assigned_agents: list[str]    # which agents are activated
+    agent_outputs: dict           # the agents' results
     supervisor_verdict: str       # "accept" | "revise" | "reject"
-    wiki_writes: list[WikiWrite]  # Zu schreibende Seiten
+    wiki_writes: list[WikiWrite]  # pages to write
 ```
 
-**Zwei Ebenen des Nutzer-Wissens im State:**
-- `user_profile` — immer geladen, komprimiert, statisch (~80-120 Zeilen). Enthält: Sprach-Verteilung, Interessens-Cluster, story_score-Statistiken. Beantwortet: *"Wer ist der Nutzer?"*
-- `graph_context` — dynamisch, per-Task, spezifisch. Enthält: die N relevantesten Wiki-Seiten für den aktuellen Input. Beantwortet: *"Was weiß der Graph schon über dieses Thema?"*
+The real definition lives in [`main_workflow.py`](../main_workflow.py) and additionally carries `review_notes` and `telegram_messages`.
 
-### 3.3 Supervisor-Entscheidungslogik
+**Two levels of user knowledge in the state:**
+- `user_profile`: always loaded, compressed, static (~80–120 lines). Contains language distribution, interest clusters and story_score statistics. Answers: *"Who is the user?"*
+- `graph_context`: dynamic, per task, specific. Contains the N most relevant wiki pages for the current input. Answers: *"What does the graph already know about this?"*
 
-```
-Input kommt rein
-    │
-    ├─ [1. Klassifikation] → Was ist das? (Haiku, günstig)
-    │       ├─ Spanisches Wort/Ausdruck → Language Agent
-    │       ├─ Persönliches Erlebnis → Diary Agent
-    │       ├─ Beides → Beide parallel
-    │       ├─ Frage des Nutzers → Query-Flow
-    │       └─ Kein klarer Typ → Supervisor fragt nach (Telegram-Antwort)
-    │
-    ├─ [2. Graph Context Match] → Schlüsselbegriffe extrahieren → graph_reader.search()
-    │       ├─ Für PersonalFact: suche ähnliche Facts, Themen-Cluster, Orte, Personen
-    │       ├─ Für Vocab: suche verwandte Wörter, Bridges, CulturalEntries
-    │       └─ Ergebnis: graph_context (Top 5-10 relevante Seiten)
-    │
-    │       Beispiel: Input "war beim Flamenco-Kurs heute"
-    │       → graph_context enthält: [[pf_erste-flamenco-show]], [[c_es_flamenco]],
-    │         [[v_es_duende]], [[con_spanische-kultur]]
-    │       → Diary Agent erkennt: das ist Teil eines Musters → story_score steigt
-    │
-    ├─ [3. Ausführung] → Agenten erhalten: Task + user_profile + graph_context
-    │       → Agenten arbeiten parallel wo möglich
-    │
-    ├─ [4. Bewertung] → Supervisor prüft Agent-Output gegen user_profile + graph_context
-    │       ├─ Ist story_score konsistent mit ähnlichen Facts im graph_context?
-    │       ├─ Wurden relevante Querverweise aus graph_context gezogen?
-    │       ├─ Passt die Sprach-Zuordnung zur bekannten Verteilung?
-    │       └─ Gibt es Widersprüche zu bestehenden Wiki-Seiten?
-    │
-    └─ [5. Schreiben] → Nur nach Supervisor-Freigabe landet etwas im Graphen
-```
-
-### 3.4 Supervisor als Nutzer-Anwalt
-
-Der Supervisor kombiniert zwei Wissensquellen um den Nutzer zu verstehen:
-
-**`user_profile.md` — die komprimierte Signatur** (~80-120 Zeilen, immer im Kontext)
-- Sprach-Verteilung der letzten 30/90 Tage
-- Interessens-Cluster (aus Themen-Häufigkeit im Graph)
-- story_score-Durchschnitt und Schwellwerte
-- Noch nicht elaborierte High-Score-Facts
-
-**`graph_context` — das situative Gedächtnis** (dynamisch, per-Task)
-- Die konkret relevanten Wiki-Seiten für den aktuellen Input
-- Gibt dem Agenten nicht nur das Profil des Nutzers, sondern den echten Kontext
-
-**Positiver Feedback-Loop:** Je reicher der Graph, desto bessere graph_context-Treffer, desto treffsicherere Bewertungen, desto besser wächst der Graph weiter.
+### 3.3 Supervisor decision logic
 
 ```
-Leerer Graph     → graph_context leer → score basiert nur auf user_profile
-Graph mit 50 S.  → graph_context 3-5 Treffer → score informiert durch Muster
-Graph mit 200 S. → graph_context 8-10 Treffer → score hochpräzise, vernetzt
+Input arrives
+    │
+    ├─ [1. Classification] → what is it? (Haiku, cheap)
+    │       ├─ Spanish word/expression → language agent
+    │       ├─ personal experience    → diary agent
+    │       ├─ both                   → both in parallel
+    │       ├─ user question          → query flow
+    │       └─ unclear                → supervisor asks back (Telegram reply)
+    │
+    ├─ [2. Graph context match] → extract key terms → graph_reader.search_wiki()
+    │       ├─ PersonalFact: similar facts, topic clusters, places, people
+    │       ├─ Vocab: related words, bridges, CulturalEntries
+    │       └─ result: graph_context (top 5–10 relevant pages)
+    │
+    │       Example: input "burnt the rice again, but the socarrat was perfect"
+    │       → graph_context contains [[pf_2026-03-22_first-burnt-socarrat]],
+    │         [[v_es_socarrat]], [[c_es_paella-valenciana]]
+    │       → diary agent recognizes a pattern → story_score goes up
+    │
+    ├─ [3. Execution] → agents receive task + user_profile + graph_context
+    │       → agents run in parallel where possible
+    │
+    ├─ [4. Review] → supervisor checks agent output against user_profile + graph_context
+    │       ├─ is the story_score consistent with similar facts in graph_context?
+    │       ├─ were relevant cross-links from graph_context used?
+    │       ├─ does the language assignment match the known distribution?
+    │       └─ does it contradict existing wiki pages?
+    │
+    └─ [5. Write] → only after supervisor approval does anything reach the graph
+```
+
+### 3.4 The supervisor as the user's advocate
+
+The supervisor combines two sources of knowledge to understand the user:
+
+**`user_profile.md`: the compressed signature** (~80–120 lines, always in context)
+- language distribution over the last 30/90 days
+- interest clusters (from topic frequency in the graph)
+- story_score average and thresholds
+- high-score facts not yet elaborated
+
+**`graph_context`: the situational memory** (dynamic, per task)
+- the wiki pages that are actually relevant to the current input
+- gives the agent real context, not just the user's profile
+
+**Positive feedback loop:** the richer the graph, the better the graph_context hits, the more accurate the reviews, and the better the graph keeps growing.
+
+```
+Empty graph      → graph_context empty → score based on user_profile only
+Graph, 50 pages  → 3–5 hits            → score informed by patterns
+Graph, 200 pages → 8–10 hits           → score precise and well linked
 ```
 
 ---
 
-## 4. Agenten
+## 4. Agents
 
-### Kommunikations-Prinzip
+### Communication principle
 
-**Agenten kommunizieren nicht direkt miteinander.** Jegliche Koordination läuft über:
-1. **LangGraph State Dict** — ephemer, pro Lauf (Supervisor teilt Kontext)
-2. **Knowledge Graph** — persistent (Agenten lesen/schreiben Dateien)
+**Agents never talk to each other directly.** All coordination goes through:
+1. **The LangGraph state dict**: ephemeral, per run (the supervisor shares context).
+2. **The knowledge graph**: persistent (agents read and write files).
 
-Das macht das System debuggbar und erweiterbar: ein neuer Agent muss nur das Dateiformat kennen, nicht die anderen Agenten.
+This keeps the system debuggable and extensible: a new agent only has to know the file format, not the other agents.
 
-### 4.1 Ingestion Agent
+### 4.1 Ingestion agent
 
-**Zweck:** Klassifiziert und normalisiert RawEvents. Ist das Eingangs-Gateway des Systems.
+**Purpose:** classifies and normalizes RawEvents. It is the system's entry gateway.
 
-**Input:** `raw/events/` Datei  
-**Output:** Strukturierter Task für den Supervisor + klassifizierter Intent
+**Input:** a file in `raw/events/`
+**Output:** a structured task for the supervisor plus the classified intent
 
-**Verantwortlichkeiten:**
-- Sprache des Inputs erkennen (ISO 639-1)
-- Intent klassifizieren (vocab / personal_fact / query / ambiguous)
-- Bei Mehrdeutigkeit: Rückfrage an Nutzer via Telegram formulieren
-- Metadaten normalisieren (Timestamp, Source)
+**Responsibilities:**
+- detect the input language (ISO 639-1)
+- classify the intent (vocab / personal_fact / query / ambiguous)
+- if ambiguous: phrase a follow-up question to the user via Telegram
+- normalize metadata (timestamp, source)
 
-**Modell:** Claude Haiku (Klassifikation ist cheap)
+**Model:** Claude Haiku (classification is cheap).
+*Status:* implemented as `Supervisor.classify` in [`agents/supervisor.py`](../agents/supervisor.py).
 
-### 4.2 Language Agent
+### 4.2 Language agent
 
-**Zweck:** Verarbeitet sprachbezogene Inputs → erzeugt/aktualisiert VocabEntry, CulturalEntry, LanguageBridge.
+**Purpose:** processes language-related input → creates or updates VocabEntry, CulturalEntry and LanguageBridge pages.
 
-**Input:** Klassifizierter Task vom Supervisor + relevante Wiki-Seiten aus Index  
-**Output:** Neue/aktualisierte Markdown-Seiten + Anki-Export-Task (optional)
+**Input:** classified task from the supervisor plus relevant wiki pages from the index
+**Output:** new or updated Markdown pages plus an optional Anki export task
 
-**Verantwortlichkeiten:**
-- VocabEntry erstellen mit vollständigem Kontext (Übersetzungen, Konjugation, Beispielsätze, Eselsbrücke)
-- Cross-Language-Bridges identifizieren und verlinken
-- CulturalEntry erstellen mit Land-Kontext
-- Bestehende Einträge aktualisieren wenn neue Info eintrifft
-- Anki-Export triggern (via AnkiConnect REST)
-- `user_language_profile.md` Input-Verteilung aktualisieren
+**Responsibilities:**
+- create VocabEntries with full context (translations, conjugation, example sentences, mnemonic)
+- identify and link cross-language bridges
+- create CulturalEntries with country context
+- update existing entries when new information arrives
+- trigger the Anki export
+- update the input distribution in `user_language_profile.md`
 
-**Modell:** Haiku für Routine-VocabEntries / Sonnet für komplexe CulturalEntries und Bridges
+**Model:** Haiku for routine VocabEntries, Sonnet for complex CulturalEntries and bridges.
+*Status:* Anki export runs as a separate script ([`scripts/export_anki.py`](../scripts/export_anki.py), `.apkg` via genanki), not via AnkiConnect.
 
-### 4.3 Diary Agent
+### 4.3 Diary agent
 
-**Zweck:** Extrahiert PersonalFacts, bewertet Erzählpotential, elaboriert Geschichten.
+**Purpose:** extracts PersonalFacts, rates their story potential and elaborates stories.
 
-**Input:** Klassifizierter Task + PersonalFacts aus Index (für Kontext und Korrelationen)  
-**Output:** Neue/aktualisierte PersonalFact-Seiten, ggf. Story-Seiten
+**Input:** classified task plus PersonalFacts from the index (for context and correlations)
+**Output:** new or updated PersonalFact pages, possibly story pages
 
-**Verantwortlichkeiten:**
-- PersonalFact aus RawEvent extrahieren
-- `story_score` berechnen (0–10) nach diesen Kriterien:
-  - Überraschungsmoment (0–3 Punkte)
-  - Universelle Anschlussfähigkeit — "Kann jeder nachfühlen?" (0–3 Punkte)
-  - Konkrete Details / Sensorisches (0–2 Punkte)
-  - Pointe / Wendung (0–2 Punkte)
-- Korrelationen zu bestehenden PersonalFacts suchen (Themen-Cluster)
-- Facts mit `story_score > 7` für Elaboration vormerken
-- Übungs-Prompts generieren (Telegram-Nachricht an Nutzer)
+**Responsibilities:**
+- extract the PersonalFact from the RawEvent
+- compute the `story_score` (0–10) from these criteria:
+  - surprise (0–3 points)
+  - universal relatability: "can anyone relate?" (0–3 points)
+  - concrete, sensory details (0–2 points)
+  - punchline or twist (0–2 points)
+- look for correlations with existing PersonalFacts (topic clusters)
+- mark facts with `story_score > 7` for elaboration
+- generate practice prompts (Telegram message to the user)
 
-**Modell:** Sonnet (Nuanciertes Reasoning über Erzähl-Qualität)  
-**Privacy:** Sensitivity-Tier aus SCHEMA.md §6.3 strikt beachten
+**Model:** Sonnet (nuanced reasoning about narrative quality).
+**Privacy:** strictly respect the sensitivity tier from SCHEMA.md §6.3.
 
-### 4.4 Lint Agent
+### 4.4 Lint agent
 
-**Zweck:** Periodische Graphen-Gesundheit. Findet strukturelle Schwächen, behebt was automatisch geht.
+**Purpose:** periodic graph health. Finds structural weaknesses and fixes what can be fixed automatically.
 
-**Input:** Alle Wiki-Seiten (batch-weise) + index.md + log.md  
-**Output:** Lint-Report, reparierte Seiten, Aufgaben-Queue für Nutzer-Entscheidungen
+**Input:** all wiki pages (in batches) plus index.md and log.md
+**Output:** lint report, repaired pages, a queue of decisions for the user
 
-**Verantwortlichkeiten:**
-- Symptome aus SCHEMA.md §8 prüfen
-- Automatisch reparierbar: fehlende Querverweise ergänzen, Index aktualisieren
-- Nicht automatisch: Widersprüche flaggen, Nutzer-Entscheidung einholen (Telegram)
-- Monatlicher "Graph-Health-Report" für Nutzer generieren
+**Responsibilities:**
+- check the symptoms from SCHEMA.md §8
+- automatic: add missing cross-links, update the index
+- not automatic: flag contradictions and ask the user (Telegram)
+- generate a monthly "graph health report" for the user
 
-**Modell:** Haiku (Struktur-Checks sind cheap)  
-**Trigger:** Täglich 03:00 Uhr (systemd-Timer oder Python `schedule`)
+**Model:** Haiku (structure checks are cheap).
+**Trigger:** daily at 03:00 (planned; currently not scheduled).
 
 ---
 
-## 5. Provider-Strategie
+## 5. Provider strategy
 
-### 5.1 Zwei-Modus-Betrieb
+### 5.1 Two operating modes
 
-Das System kennt zwei Provider-Modi — automatische Auswahl via Umgebungsvariable:
+The system knows two provider modes, selected automatically from the environment:
 
-| Modus | Bedingung | Haiku-Rolle | Sonnet-Rolle | Zweck |
+| Mode | Condition | "Haiku" role | "Sonnet" role | Purpose |
 |---|---|---|---|---|
-| **Claude** | `ANTHROPIC_API_KEY` gesetzt | Haiku 4.5 | Sonnet 4.6 | Produktion |
-| **Ollama** | kein API-Key | llama3.2 (o.ä.) | llama3.2 (o.ä.) | Lokale Tests |
+| **Claude** | `ANTHROPIC_API_KEY` set | Claude Haiku 4.5 | Claude Sonnet 4.6 | Production |
+| **Ollama** | no API key | llama3.2 (or similar) | llama3.2 (or similar) | Local tests |
 
-Die Auswahl liegt ausschließlich in `agents/base_agent.py` — kein Agent-Code ändert sich. Agenten rufen weiterhin `_haiku()` und `_sonnet()` auf.
+The selection lives only in [`agents/base_agent.py`](../agents/base_agent.py); no agent code changes. Agents keep calling `_haiku()` and `_sonnet()`.
 
-```python
-# .env — Produktion
-ANTHROPIC_API_KEY=sk-ant-...
+```bash
+# .env, production
+ANTHROPIC_API_KEY=...
 
-# .env — lokale Tests (kein API-Key nötig)
-OLLAMA_MODEL=llama3.2   # optional, Default: llama3.2
-OLLAMA_HOST=http://localhost:11434  # optional
+# .env, local tests (no API key needed)
+OLLAMA_MODEL=llama3.2                # optional, default: llama3.2
+OLLAMA_HOST=http://localhost:11434   # optional
 ```
 
-### 5.2 Qualitäts-Hinweis Ollama-Modus
+### 5.2 Quality note for Ollama mode
 
-Ollama/llama3.2 hält strukturierte Ausgabeformate (`key: value`) weniger zuverlässig ein als Claude. Im Test-Modus können einzelne Felder leer oder fehlformatiert sein — das ist kein Bug im Pipeline-Code, sondern ein bekanntes Modell-Limitation. Für reine Mechanik-Tests (LangGraph-Routing, WikiWrite-Objekte, graph_reader) reicht es vollständig.
+Ollama/llama3.2 follows structured output formats (`key: value`) less reliably than Claude. In test mode individual fields may come back empty or malformed. That is a known model limitation, not a bug in the pipeline. For pure mechanics tests (LangGraph routing, WikiWrite objects, graph_reader) it is entirely sufficient.
 
-Für Qualitätstests (story_score, VocabEntry-Inhalt) ist Claude API nötig.
+Quality tests (story_score, VocabEntry content) need the Claude API.
 
 ---
 
-## 6. LangGraph Implementierung
+## 6. LangGraph implementation
 
-### 6.1 Graph-Struktur (Ingestion Flow)
+### 6.1 Graph structure (ingestion flow)
+
+As implemented in [`main_workflow.py`](../main_workflow.py) (simplified):
 
 ```python
 from langgraph.graph import StateGraph, END
+from langgraph.constants import Send
 
-workflow = StateGraph(SupervisorState)
+wf = StateGraph(SupervisorState)
 
-# Nodes
-workflow.add_node("classify",             ingestion_agent.classify)
-workflow.add_node("fetch_graph_context",  graph_reader.fetch_context)   # ◄ NEU
-workflow.add_node("language_agent",       language_agent.process)
-workflow.add_node("diary_agent",          diary_agent.process)
-workflow.add_node("supervisor_review",    supervisor.review)
-workflow.add_node("write_to_graph",       graph_writer.write)
-workflow.add_node("update_index",         index_updater.update)
+wf.add_node("classify",            supervisor.classify)
+wf.add_node("fetch_graph_context", lambda s: graph_reader.fetch_context(s, wiki_root))
+wf.add_node("diary_agent",         diary.process)
+wf.add_node("language_agent",      language.process)
+wf.add_node("supervisor_review",   supervisor.review)
+wf.add_node("write_to_graph",      write_node)     # graph_writer.execute_writes
+wf.add_node("update_index",        index_node)     # index.md + log.md
 
-# Edges
-workflow.set_entry_point("classify")
-workflow.add_edge("classify", "fetch_graph_context")  # immer zuerst Graph befragen
+wf.set_entry_point("classify")
+wf.add_edge("classify", "fetch_graph_context")     # always query the graph first
 
-workflow.add_conditional_edges(
-    "fetch_graph_context",
-    supervisor.route,                     # jetzt mit graph_context im State
-    {
-        "vocab":         "language_agent",
-        "personal_fact": "diary_agent",
-        "both":          ["language_agent", "diary_agent"],  # parallel
-        "query":         "query_flow",
-    }
-)
+def route_after_context(state):
+    intent = supervisor.route(state)
+    if intent == "both":                            # fan out in parallel
+        return [Send("diary_agent", state), Send("language_agent", state)]
+    return {"diary_agent": "diary_agent",
+            "language_agent": "language_agent"}.get(intent, "supervisor_review")
 
-workflow.add_edge("language_agent",    "supervisor_review")
-workflow.add_edge("diary_agent",       "supervisor_review")
-workflow.add_edge("supervisor_review", "write_to_graph")
-workflow.add_edge("write_to_graph",    "update_index")
-workflow.add_edge("update_index",      END)
+wf.add_conditional_edges("fetch_graph_context", route_after_context)
+wf.add_edge("diary_agent",       "supervisor_review")
+wf.add_edge("language_agent",    "supervisor_review")
+wf.add_edge("supervisor_review", "write_to_graph")
+wf.add_edge("write_to_graph",    "update_index")
+wf.add_edge("update_index",      END)
 ```
 
-> **Status `index_updater`:** Heute durch [`scripts/rebuild_index.py`](../scripts/rebuild_index.py) realisiert (laeufergetriebenes Re-Build-Skript, kein LangGraph-Node-Modul). Eingefuehrt in BL-04 (Workshop S025) — siehe [workshop/03_architect.md §B1](../workshop/03_architect.md). Ein eigenstaendiges `agents/index_updater.py` existiert nicht.
+A full deterministic rebuild of `index.md` from frontmatter is available as [`scripts/rebuild_index.py`](../scripts/rebuild_index.py).
 
-### 6.2 Datei-Schreib-Vertrag
+### 6.2 File write contract
 
-Kein Agent schreibt direkt Dateien. Alle schreiben in den State:
+No agent writes files directly. They all write into the state:
 
 ```python
 class WikiWrite(TypedDict):
-    path: str           # z.B. "wiki/language/vocab/v_es_madrugada.md"
-    content: str        # Vollständiger Markdown-Inhalt
-    operation: str      # "create" | "update" | "append"
+    path: str        # relative to the vault root, e.g. "wiki/language/vocab/v_es_socarrat.md"
+    content: str     # full Markdown content
+    operation: str   # "create" | "update" | "append"
 ```
 
-Der `graph_writer`-Node führt alle Writes nach Supervisor-Freigabe aus. Das gibt dem Supervisor die letzte Kontrolle und macht Rollbacks möglich.
+The `write_to_graph` node executes all writes after the supervisor's approval. That gives the supervisor the final say and makes rollbacks possible. Before every write, `graph_writer.assert_writable()` refuses paths inside human-owned zones (SCHEMA.md §2).
 
-### 6.3 Graph Reader — Index-Abstraktion
+### 6.3 Graph reader: the index abstraction
 
-Der `graph_reader` ist die einzige Stelle die weiß wie der Index implementiert ist. Alle Agenten und der Supervisor rufen nur diese Schnittstelle auf:
+`graph_reader` is the only place that knows how the index is implemented. All agents and the supervisor call only this interface:
 
 ```python
 # agents/graph_reader.py
-WIKI_PAGE_THRESHOLD = 30  # ab hier: SQLite statt index.md
+WIKI_PAGE_THRESHOLD = 30  # from here on: SQLite instead of index.md
 
-def search_wiki(
-    query: str,
-    type: str | None = None,   # "PersonalFact" | "VocabEntry" | ...
-    limit: int = 10,
-) -> list[WikiPage]:
-    if _wiki_size() < WIKI_PAGE_THRESHOLD:
-        return _search_index_md(query, type, limit)   # Phase 1: einfach
-    else:
-        return _search_sqlite(query, type, limit)     # Phase 2: automatisch aktiv
+def search_wiki(query, page_type=None, language=None, limit=10, wiki_root=VAULT_ROOT):
+    if _wiki_size(wiki_root) < WIKI_PAGE_THRESHOLD:
+        return _search_index_md(...)   # phase 1: simple
+    return _search_sqlite(...)         # phase 2: automatic
 
-def fetch_context(state: SupervisorState) -> SupervisorState:
-    """LangGraph Node: extrahiert Schlüsselbegriffe und befüllt graph_context."""
-    keywords = _extract_keywords(state["raw_event"])  # Haiku, günstig
-    pages = search_wiki(query=" ".join(keywords), limit=8)
-    return {**state, "graph_context": pages}
+def fetch_context(state, wiki_root=VAULT_ROOT):
+    """LangGraph node: extract key terms and fill graph_context."""
 ```
 
-**Phase 1** (< 30 Seiten): `_search_index_md` — parst `index.md`, einfaches Keyword-Matching.  
-**Phase 2** (≥ 30 Seiten): `_search_sqlite` — SQLite FTS5, ~150 Zeilen Python-Indexer.  
-**Switch:** automatisch durch `_wiki_size()`. Der Rest des Systems merkt nichts.
+**Phase 1** (< 30 pages): `_search_index_md` parses `index.md` with simple keyword matching.
+**Phase 2** (≥ 30 pages): `_search_sqlite` uses SQLite FTS5 over `wiki_index.db`. If the database doesn't exist yet, it falls back to phase 1.
+**Switch:** automatic via `_wiki_size()`. The rest of the system doesn't notice.
+
+*Status:* the script that builds `wiki_index.db` is still on the roadmap.
 
 ---
 
-## 7. Nutzer-Interaktion: Telegram UI-Ebenen
+## 7. User interaction: Telegram UI levels
 
-Telegram ist der primäre Interaktionskanal. Es bietet drei native UI-Ebenen — von einfach bis reich:
+Telegram is the primary interaction channel. It offers three native UI levels, from simple to rich.
 
-### Ebene 1 — Buttons & Polls (sofort, kein Extra-Code)
+### Level 1: buttons and polls (immediate, no extra code)
 
 ```
-Conflict-Flag vom Lint-Agent:
+Conflict flag from the lint agent:
 ┌─────────────────────────────────────┐
-│  ⚠️ Widerspruch gefunden             │
+│  ⚠️ Contradiction found              │
 │                                     │
-│  Alt: "Flamenco-Kurs war im März"   │
-│  Neu: "Flamenco-Kurs war im April"  │
+│  Old: "Cooking class was in March"  │
+│  New: "Cooking class was in April"  │
 │                                     │
-│  [März behalten]  [April übernehmen]│
-│  [Beide behalten — verschiedene]    │
+│  [Keep March]  [Use April]          │
+│  [Keep both: different events]      │
 └─────────────────────────────────────┘
-→ InlineKeyboardMarkup mit Callback-Buttons
-→ Nutzer tippt, Supervisor führt Entscheidung aus
+→ InlineKeyboardMarkup with callback buttons
+→ user taps, supervisor executes the decision
 ```
 
 ```
-Vokabel-Quiz vom Language-Agent:
+Vocabulary quiz from the language agent:
 ┌─────────────────────────────────────┐
-│  🇪🇸 Was bedeutet "madrugada"?       │
+│  🇪🇸 What does "socarrat" mean?      │
 │                                     │
-│  ○ Mittagsschlaf                    │
-│  ○ Frühe Morgenstunden  ✓           │
-│  ○ Sonnenuntergang                  │
-│  ○ Wochenende                       │
+│  ○ A type of saffron                │
+│  ○ Crispy rice at the pan's bottom ✓│
+│  ○ The paella pan                   │
+│  ○ A fried onion-tomato base        │
 └─────────────────────────────────────┘
-→ Telegram Poll mit is_quiz=True
-→ Native Auflösung mit Erklärung, kein Code nötig
+→ Telegram poll with is_quiz=True
+→ native answer reveal with explanation, no code needed
 ```
 
-### Ebene 2 — Konversations-Flow (mittel, ~50 Zeilen)
+### Level 2: conversation flow (medium, ~50 lines)
 
-Für Übungs-Runden aus dem Diary-Modul: mehrstufige Konversation per Nachrichten.
+For practice rounds from the diary module: multi-step conversations by message.
 
 ```
-Bot: "Erzähl mir die Geschichte mit dem Fahrradunfall in 3 Sätzen."
-Nutzer: [antwortet]
-Bot: "Gut. Jetzt mit einer Pointe am Ende — was war das Überraschende?"
-Nutzer: [antwortet]
-Bot: "story_score: 7/10 — die Pointe ist stark, der Einstieg könnte konkreter sein."
+Bot:  "Tell me the story of your first burnt socarrat in three sentences."
+User: [answers]
+Bot:  "Good. Now with a punchline at the end: what was the surprise?"
+User: [answers]
+Bot:  "story_score: 7/10. The punchline is strong; the opening could be more concrete."
 ```
 
-→ `ConversationHandler` in python-telegram-bot, State-Machine per User-Session
+→ `ConversationHandler` in python-telegram-bot, a state machine per user session (already used for `/bootstrap`).
 
-### Ebene 3 — Telegram Mini Apps (Upgrade-Pfad, bei Bedarf)
+### Level 3: Telegram Mini Apps (upgrade path, if needed)
 
-Wenn native Telegram-UI nicht mehr reicht: Mini Apps sind vollständige Web-Apps (HTML/CSS/JS) die direkt im Telegram-Chat öffnen — ohne separate App.
+When native Telegram UI isn't enough: Mini Apps are full web apps (HTML/CSS/JS) that open directly in the Telegram chat, with no separate app.
 
-**Mögliche Nutzung:**
-- Obsidian-ähnliche Graph-Visualisierung auf dem Handy
-- Aufwändigere Story-Übungs-Interfaces
-- Dashboard für Graph-Health-Report
+**Possible uses:**
+- Obsidian-like graph visualization on the phone
+- richer story practice interfaces
+- a dashboard for the graph health report
 
-**Aufwand:** ~1 Woche für ein einfaches Mini App. Kein App-Store nötig.
+**Effort:** about one week for a simple Mini App. No app store needed.
 
-**Entscheidung:** Start mit Ebene 1 + 2. Ebene 3 nur wenn konkreter Bedarf entsteht.
+**Decision:** start with levels 1 and 2. Level 3 only when there is a concrete need.
 
 ---
 
-## 8. Graph-Versionierung: Draft → Prod Workflow
+## 8. Graph versioning: draft → production workflow
 
-### Das Konzept
+### The concept
 
-Der Knowledge Graph läuft auf **zwei Git-Branches**:
+The vault runs on **two git branches**:
 
 ```
-draft  ← LLM schreibt hier (alle neuen/aktualisierten Wiki-Seiten)
-master ← "prod" Graph — was Obsidian liest, was zählt
+draft  ← the LLM writes here (all new or updated wiki pages)
+master ← the "production" graph: what Obsidian reads, what counts
 ```
 
-Kein GitHub nötig. Lokales Git-Repo, Python-Script macht den Merge.
+No GitHub needed. A local git repo; a Python script does the merge.
 
 ### Flow
 
 ```
-LLM-Agent verarbeitet Input
-    → graph_writer schreibt in draft-Branch
-    → Lint-Agent prüft neue Seiten auf draft
-    → Supervisor generiert Review-Summary
+LLM agent processes input
+    → graph_writer writes to the draft branch
+    → lint agent checks the new pages on draft
+    → supervisor generates a review summary
 
-Supervisor → Telegram-Nachricht an Nutzer:
+Supervisor → Telegram message to the user:
 ┌─────────────────────────────────────────┐
-│  📋 3 neue Seiten warten auf Freigabe   │
+│  📋 3 new pages awaiting approval        │
 │                                         │
-│  • pf_2026-04-18_flamenco-kurs (neu)    │
-│  • v_es_duende (aktualisiert)           │
-│  • lb_es-de_duende-bridge (neu)         │
+│  • pf_2026-04-18_paella-cooking-class   │
+│  • v_es_socarrat (updated)              │
+│  • lb_es-en_azafran (new)               │
 │                                         │
-│  [Freigeben ✓]  [Details]  [Ablehnen ✗] │
+│  [Approve ✓]  [Details]  [Reject ✗]     │
 └─────────────────────────────────────────┘
 
-[Freigeben] → git merge draft → master (Python subprocess)
-[Details]   → Bot sendet Diff-Summary der Änderungen
-[Ablehnen]  → git checkout draft -- . (reset), Nutzer-Feedback optional
+[Approve] → git merge draft → master (Python subprocess)
+[Details] → bot sends a diff summary of the changes
+[Reject]  → reset draft to master, optional user feedback
 ```
 
-### Implementierung
+### Implementation
 
-```python
-# graph_writer.py
-import subprocess
+The git helpers `approve_draft()`, `reject_draft()` and `ensure_draft_branch()` live in [`agents/graph_writer.py`](../agents/graph_writer.py).
 
-def approve_draft() -> bool:
-    """Mergt draft → master. Wird via Telegram-Callback aufgerufen."""
-    result = subprocess.run(
-        ["git", "merge", "draft", "--no-ff", "-m", "approved by user"],
-        cwd=WIKI_ROOT, capture_output=True
-    )
-    return result.returncode == 0
+*Status:* they have no production caller yet; writes currently go directly to the checked-out branch. `reject_draft()` assumes the production branch is called `master` (see [ROADMAP](../ROADMAP.md)).
 
-def reject_draft() -> bool:
-    """Setzt draft auf Stand von master zurück."""
-    subprocess.run(["git", "checkout", "master"], cwd=WIKI_ROOT)
-    subprocess.run(["git", "branch", "-D", "draft"], cwd=WIKI_ROOT)
-    subprocess.run(["git", "checkout", "-b", "draft"], cwd=WIKI_ROOT)
-    return True
-```
+### When is approval needed?
 
-### Wann Freigabe nötig?
+Not every change needs manual approval; that would be too much overhead:
 
-Nicht jede Änderung braucht manuelle Freigabe — das wäre zu viel Aufwand:
-
-| Änderungstyp                      | Freigabe nötig? | Begründung                          |
-|-----------------------------------|-----------------|-------------------------------------|
-| Neue VocabEntry                   | Nein            | Risikoarm, reversibel               |
-| Neue CulturalEntry                | Nein            | Risikoarm                           |
-| Neuer PersonalFact (`raw`)        | Nein            | Nur Extraktion, noch nicht elaboriert|
-| PersonalFact (`story_score > 7`)  | Ja              | Wertvoller Inhalt, Nutzer soll wissen|
-| Widerspruch-Auflösung             | Ja              | Inhaltliche Entscheidung            |
-| Lint-Fix (Querverweise)           | Nein            | Strukturell, risikoarm              |
-| Löschung/Archivierung             | Immer           | Destruktiv                          |
+| Change type | Approval? | Reason |
+|---|---|---|
+| New VocabEntry | No | Low risk, reversible |
+| New CulturalEntry | No | Low risk |
+| New PersonalFact (`raw`) | No | Extraction only, not elaborated yet |
+| PersonalFact (`story_score > 7`) | Yes | Valuable content; the user should know |
+| Contradiction resolution | Yes | A content decision |
+| Lint fix (cross-links) | No | Structural, low risk |
+| Deletion / archiving | Always | Destructive |
 
 ---
 
-## 9. Trigger & Scheduling
+## 9. Triggers and scheduling
 
-| Trigger                    | Wann                       | Auslöser            | Flow              |
-|----------------------------|----------------------------|---------------------|-------------------|
-| Telegram-Nachricht         | Jederzeit (Nutzer)         | Telegram Webhook    | Ingestion         |
-| Täglicher Lint             | 03:00 Uhr                  | systemd-Timer       | Lint              |
-| Wöchentliche Übungs-Runde  | Sonntag 10:00 Uhr          | systemd-Timer       | Diary (Übung)     |
-| Zufällige Sprachnachricht  | 1x täglich, zufällige Zeit | Python `schedule`   | Language (Push)   |
-| Monatlicher Graph-Report   | 1. des Monats              | systemd-Timer       | Lint (Report)     |
-| Draft-Review-Reminder      | Wenn draft > 24h alt       | Python `schedule`   | Telegram Freigabe |
+| Trigger | When | Source | Flow |
+|---|---|---|---|
+| Telegram message | any time (user) | Telegram (long polling) | Ingestion |
+| Daily lint | 03:00 | scheduler | Lint |
+| Weekly practice round | Sunday 10:00 | scheduler | Diary (practice) |
+| Random language nudge | once a day, random time | scheduler | Language (push) |
+| Monthly graph report | 1st of the month | scheduler | Lint (report) |
+| Draft review reminder | when draft is older than 24 h | scheduler | Telegram approval |
+
+*Status:* only the Telegram trigger is implemented; the scheduled jobs are planned.
 
 ---
 
-## 10. Offene Architektur-Fragen (Backlog)
+## 10. Open architecture questions
 
-- [x] Supervisor-Granularität: user_profile (~80-120 Zeilen) + graph_context (dynamisch) — zwei Ebenen
-- [x] Index-Schwellwert: graph_reader Abstraktion mit automatischem Phase 1→2 Switch bei 150 Seiten
-- [x] Nutzer-UI: Telegram Ebene 1 (Buttons/Polls) + Ebene 2 (ConversationHandler); Mini Apps als Upgrade-Pfad
-- [x] Graph-Versionierung: draft → master Branch-Workflow, manuelle Freigabe via Telegram für kritische Änderungen
-- [x] Ollama lokal: llama3.2 als Default für `private`-Tier und als Test-Fallback. Qualitätsvergleich llama3.2 vs. mistral steht noch aus — für MVP-0/1 reicht llama3.2.
-- [ ] Keyword-Extraktion für graph_context: wie viele Begriffe, welche Gewichtung (Entitäten > Verben)?
+- [x] Supervisor granularity: user_profile (~80–120 lines) + graph_context (dynamic), two levels
+- [x] Index threshold: graph_reader abstraction with an automatic phase 1 → 2 switch
+- [x] User UI: Telegram level 1 (buttons/polls) + level 2 (ConversationHandler); Mini Apps as an upgrade path
+- [x] Graph versioning: draft → master branch workflow, manual Telegram approval for critical changes
+- [x] Local Ollama: llama3.2 as the default for the `private` tier and as the test fallback
+- [ ] Key-term extraction for graph_context: how many terms, which weighting (entities > verbs)?

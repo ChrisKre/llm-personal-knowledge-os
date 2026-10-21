@@ -29,7 +29,7 @@
 |---|---|---|---|
 | ENT-NEU-A | Sensitivity-Tier-Default für Bilder (Pre-Req C6) | QK-9 / [03 §A1 [01 §C6]](../03_architect.md) | Default `sensitive` + Quick-Save ohne Hint, Auto-Ingest mit explizitem `#bild`/`#vision`. **Asymmetrisch** zu ENT-047/048 — bewusst, weil Privacy-Default. |
 | ENT-NEU-B | `out/anki_export_log.json` als Persistenz-Pfad für Health-Tag | QK-10 / [03 §A1 [01 §C5]](../03_architect.md) | Architekt-Empfehlung annehmen. Cold-Start nach `out/`-Löschung akzeptabel. |
-| ENT-NEU-C | IPA-Frontmatter-Slot in [SCHEMA.md §3.2](../../doc/SCHEMA.md) | R11 / [03 §A1 [02 §B5 IPA]](../03_architect.md) | Optional, sprachspezifisch. Frontmatter-Feld `ipa: <string\|null>`. Keine Backfill-Pflicht — Renderer skipt leer. |
+| ENT-NEU-C | IPA-Frontmatter-Slot in [SCHEMA.md §3.2](../../doc/de/SCHEMA.md) | R11 / [03 §A1 [02 §B5 IPA]](../03_architect.md) | Optional, sprachspezifisch. Frontmatter-Feld `ipa: <string\|null>`. Keine Backfill-Pflicht — Renderer skipt leer. |
 | ENT-007-Update | Status-Update für Draft→Master-Workflow | QK-13 / [03 §D5](../03_architect.md) | Formale Pause für MVP-2-Zweitwelle. Re-Aktivierungs-Trigger: LLM-getriggerte Lint-Fixes mit Halluzinations-Risiko (post-MVP-3). |
 | ENT-027-Status | Threshold `30` ist führend, ARCHITECTURE.md korrigieren | QK-12 / [03 §C3 K2](../03_architect.md) | Doku-Korrektur an drei Stellen (ARCHITECTURE.md §6.3, graph_reader.py Header). Kein neuer ENT, nur Konsistenz-Bestätigung mit ENT-027. |
 
